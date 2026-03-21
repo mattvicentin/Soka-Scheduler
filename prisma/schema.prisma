@@ -1,0 +1,476 @@
+// Soka Academic Scheduling System — Database Schema
+// Final implementation specification. No secondary_faculty_id; team teaching via course_offering_instructors.
+// Cross-listing via course_template_programs. Placeholder offerings: participates_in_scheduling = false.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
+enum AccountRole {
+  professor
+  director
+  dean
+}
+
+enum ProgramType {
+  concentration
+  program
+  area
+}
+
+enum BuildingPreference {
+  ikeda
+  gandhi
+  pauling
+  curie
+  maathai
+  other
+}
+
+enum SabbaticalType {
+  sabbatical
+  admin_release
+  partial_reduction
+}
+
+enum TypicallyOffered {
+  fall
+  spring
+  both
+}
+
+enum ScheduleVersionMode {
+  draft
+  official
+}
+
+enum ProposalStatus {
+  draft
+  submitted
+  under_review
+  revised
+  approved
+  finalized
+  published
+}
+
+enum VerificationCodePurpose {
+  account_setup
+  sensitive_action
+}
+
+enum Semester {
+  fall
+  spring
+}
+
+// =============================================================================
+// Identity: accounts + faculty (faculty exists before account)
+// =============================================================================
+
+model Account {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  passwordHash String?   @map("password_hash")
+  facultyId    String?   @unique @map("faculty_id") @db.Uuid
+  role         AccountRole
+  isActive     Boolean   @default(true) @map("is_active")
+  isAdmin      Boolean   @default(false) @map("is_admin")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  faculty              Faculty?   @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+  programAssocs        AccountProgramAssociation[]
+  refreshTokens        RefreshToken[]
+  auditLogs            AuditLog[]
+  verificationCodes    VerificationCode[]
+  createdInvitations   Invitation[]           @relation("CreatedInvitations")
+  approvedProposals    ScheduleProposal[]     @relation("ApprovedProposals")
+  finalizedProposals   ScheduleProposal[]     @relation("FinalizedProposals")
+  proposalRevisionLogs ProposalRevisionLog[]
+  directedPrograms     Program[]              @relation("ProgramDirector")
+
+  @@map("accounts")
+}
+
+model Faculty {
+  id                       String    @id @default(uuid()) @db.Uuid
+  email                    String    @unique
+  name                     String
+  expectedAnnualLoad       Int       @map("expected_annual_load") // 1-7, enforced in app
+  loadExceptionReason      String?   @map("load_exception_reason")
+  buildingPreferenceDefault BuildingPreference? @map("building_preference_default")
+  roomPreferenceDefault    String?   @map("room_preference_default")
+  isExcluded               Boolean   @default(false) @map("is_excluded")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  account                 Account?
+  programAffiliations     FacultyProgramAffiliation[]
+  invitations             Invitation[]
+  scheduleProposals       ScheduleProposal[]
+  courseOfferingInstructors CourseOfferingInstructor[]
+  sabbaticals             Sabbatical[]
+  historicalOfferings     HistoricalOffering[]
+
+  @@map("faculty")
+}
+
+model Program {
+  id                  String    @id @default(uuid()) @db.Uuid
+  name                String
+  directorAccountId   String?   @map("director_account_id") @db.Uuid
+  type                ProgramType
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  director            Account?  @relation("ProgramDirector", fields: [directorAccountId], references: [id], onDelete: SetNull)
+  accountAssocs       AccountProgramAssociation[]
+  facultyAffiliations FacultyProgramAffiliation[]
+  courseTemplatePrograms CourseTemplateProgram[]
+
+  @@map("programs")
+}
+
+model AccountProgramAssociation {
+  accountId String   @map("account_id") @db.Uuid
+  programId String   @map("program_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, programId])
+  @@index([programId])
+  @@map("account_program_associations")
+}
+
+model FacultyProgramAffiliation {
+  facultyId String   @map("faculty_id") @db.Uuid
+  programId String   @map("program_id") @db.Uuid
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  faculty Faculty @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@id([facultyId, programId])
+  @@index([programId])
+  @@map("faculty_program_affiliations")
+}
+
+// =============================================================================
+// Terms
+// =============================================================================
+
+model Term {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  semester     Semester
+  academicYear Int       @map("academic_year")
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  courseOfferings     CourseOffering[]
+  scheduleVersions    ScheduleVersion[]
+  scheduleSlots       ScheduleSlot[]
+  scheduleProposals   ScheduleProposal[]
+  sabbaticals         Sabbatical[]
+  historicalOfferings HistoricalOffering[]
+
+  @@unique([academicYear, semester])
+  @@map("terms")
+}
+
+// =============================================================================
+// Course catalog: course_templates + course_template_programs (cross-listing)
+// =============================================================================
+
+model CourseTemplate {
+  id               String    @id @default(uuid()) @db.Uuid
+  title            String
+  courseCode       String    @map("course_code")
+  credits          Int?      // Typical 1-4; null = variable. App enforces 1-10 when set
+  typicallyOffered TypicallyOffered?
+  sourceTemplateId String?   @map("source_template_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  sourceTemplate   CourseTemplate?  @relation("TemplateReuse", fields: [sourceTemplateId], references: [id], onDelete: SetNull)
+  derivedTemplates CourseTemplate[] @relation("TemplateReuse")
+  programs         CourseTemplateProgram[]
+  courseOfferings  CourseOffering[]
+
+  @@map("course_templates")
+}
+
+// Cross-listing: one template can belong to multiple programs
+model CourseTemplateProgram {
+  courseTemplateId String @map("course_template_id") @db.Uuid
+  programId        String @map("program_id") @db.Uuid
+  displayOrder     Int    @default(0) @map("display_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  courseTemplate CourseTemplate @relation(fields: [courseTemplateId], references: [id], onDelete: Cascade)
+  program       Program        @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@id([courseTemplateId, programId])
+  @@index([programId])
+  @@map("course_template_programs")
+}
+
+// =============================================================================
+// Course offerings: term-specific instances; instructors via junction (team teaching)
+// =============================================================================
+
+model CourseOffering {
+  id                      String    @id @default(uuid()) @db.Uuid
+  courseTemplateId        String    @map("course_template_id") @db.Uuid
+  termId                  String    @map("term_id") @db.Uuid
+  sectionCode             String    @map("section_code")
+  crn                     String?
+  creditsOverride         Int?      @map("credits_override")
+  participatesInScheduling Boolean @default(true) @map("participates_in_scheduling") // false = Study Abroad, placeholders
+  sourceOfferingId        String?   @map("source_offering_id") @db.Uuid
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  courseTemplate         CourseTemplate  @relation(fields: [courseTemplateId], references: [id], onDelete: Restrict)
+  term                   Term            @relation(fields: [termId], references: [id], onDelete: Restrict)
+  sourceOffering         CourseOffering? @relation("OfferingReuse", fields: [sourceOfferingId], references: [id], onDelete: SetNull)
+  derivedOfferings       CourseOffering[] @relation("OfferingReuse")
+  instructors            CourseOfferingInstructor[]
+  scheduleSlots          ScheduleSlot[]
+  historicalOfferings    HistoricalOffering[]
+
+  @@unique([courseTemplateId, termId, sectionCode])
+  @@index([termId])
+  @@index([courseTemplateId, termId])
+  @@index([participatesInScheduling])
+  @@map("course_offerings")
+}
+
+// Team teaching: load_share must sum to 1.0 per offering (app-enforced)
+model CourseOfferingInstructor {
+  id               String   @id @default(uuid()) @db.Uuid
+  courseOfferingId String   @map("course_offering_id") @db.Uuid
+  facultyId        String   @map("faculty_id") @db.Uuid
+  role             String?
+  loadShare        Decimal  @map("load_share") @db.Decimal(3, 2) // e.g. 1.0, 0.5
+  displayOrder     Int      @default(0) @map("display_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  courseOffering CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
+  faculty        Faculty        @relation(fields: [facultyId], references: [id], onDelete: Restrict)
+
+  @@unique([courseOfferingId, facultyId])
+  @@index([facultyId])
+  @@index([courseOfferingId])
+  @@map("course_offering_instructors")
+}
+
+// =============================================================================
+// Schedule: versions (draft/official), slots, proposals
+// =============================================================================
+
+model ScheduleVersion {
+  id            String   @id @default(uuid()) @db.Uuid
+  termId        String   @map("term_id") @db.Uuid
+  mode          ScheduleVersionMode
+  versionNumber Int      @map("version_number")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  term  Term           @relation(fields: [termId], references: [id], onDelete: Cascade)
+  slots ScheduleSlot[]
+
+  @@unique([termId, mode])
+  @@map("schedule_versions")
+}
+
+model ScheduleSlot {
+  id                  String   @id @default(uuid()) @db.Uuid
+  courseOfferingId    String   @map("course_offering_id") @db.Uuid
+  termId              String   @map("term_id") @db.Uuid
+  scheduleVersionId   String   @map("schedule_version_id") @db.Uuid
+  dayOfWeek           Int      @map("day_of_week") // 1=Mon .. 5=Fri
+  startTime           DateTime @map("start_time") @db.Time(0)
+  endTime             DateTime @map("end_time") @db.Time(0)
+  buildingPreference  BuildingPreference? @map("building_preference")
+  roomPreference      String?  @map("room_preference")
+  version             Int      @default(1) // Optimistic locking
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  courseOffering   CourseOffering   @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
+  term             Term             @relation(fields: [termId], references: [id], onDelete: Cascade)
+  scheduleVersion  ScheduleVersion  @relation(fields: [scheduleVersionId], references: [id], onDelete: Cascade)
+
+  @@index([scheduleVersionId, termId, dayOfWeek])
+  @@index([courseOfferingId])
+  @@map("schedule_slots")
+}
+
+model ScheduleProposal {
+  id                    String         @id @default(uuid()) @db.Uuid
+  facultyId              String         @map("faculty_id") @db.Uuid
+  termId                 String         @map("term_id") @db.Uuid
+  status                 ProposalStatus @default(draft)
+  submittedAt            DateTime?     @map("submitted_at")
+  approvedByAccountId    String?        @map("approved_by_account_id") @db.Uuid
+  finalizedByAccountId   String?        @map("finalized_by_account_id") @db.Uuid
+  createdAt              DateTime       @default(now()) @map("created_at")
+  updatedAt              DateTime       @updatedAt @map("updated_at")
+
+  faculty              Faculty         @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  term                 Term            @relation(fields: [termId], references: [id], onDelete: Cascade)
+  approvedBy           Account?        @relation("ApprovedProposals", fields: [approvedByAccountId], references: [id], onDelete: SetNull)
+  finalizedBy          Account?        @relation("FinalizedProposals", fields: [finalizedByAccountId], references: [id], onDelete: SetNull)
+  revisionLog          ProposalRevisionLog[]
+
+  @@unique([facultyId, termId])
+  @@index([termId, status])
+  @@map("schedule_proposals")
+}
+
+model ProposalRevisionLog {
+  id                  String   @id @default(uuid()) @db.Uuid
+  scheduleProposalId  String   @map("schedule_proposal_id") @db.Uuid
+  editedByAccountId   String   @map("edited_by_account_id") @db.Uuid
+  editedAt            DateTime @default(now()) @map("edited_at")
+  changesSummary      Json?    @map("changes_summary")
+
+  scheduleProposal ScheduleProposal @relation(fields: [scheduleProposalId], references: [id], onDelete: Cascade)
+  editedBy         Account          @relation(fields: [editedByAccountId], references: [id], onDelete: Restrict)
+
+  @@map("proposal_revision_log")
+}
+
+// =============================================================================
+// Sabbaticals / releases
+// =============================================================================
+
+model Sabbatical {
+  id                      String         @id @default(uuid()) @db.Uuid
+  facultyId               String         @map("faculty_id") @db.Uuid
+  termId                  String         @map("term_id") @db.Uuid
+  type                    SabbaticalType
+  reason                  String?
+  effectiveLoadReduction  Decimal        @map("effective_load_reduction") @db.Decimal(3, 2)
+  createdAt               DateTime       @default(now()) @map("created_at")
+  updatedAt               DateTime       @updatedAt @map("updated_at")
+
+  faculty Faculty @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  term    Term    @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@index([facultyId, termId])
+  @@map("sabbaticals")
+}
+
+// =============================================================================
+// Historical offerings (for fairness calculation)
+// =============================================================================
+
+model HistoricalOffering {
+  id                String   @id @default(uuid()) @db.Uuid
+  facultyId         String   @map("faculty_id") @db.Uuid
+  courseOfferingId  String   @map("course_offering_id") @db.Uuid
+  termId            String   @map("term_id") @db.Uuid
+  dayOfWeek         Int      @map("day_of_week")
+  startTime         DateTime @map("start_time") @db.Time(0)
+  endTime           DateTime @map("end_time") @db.Time(0)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  faculty        Faculty        @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  courseOffering CourseOffering @relation(fields: [courseOfferingId], references: [id], onDelete: Cascade)
+  term           Term           @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@index([facultyId])
+  @@map("historical_offerings")
+}
+
+// =============================================================================
+// Auth: invitations, verification codes, refresh tokens
+// =============================================================================
+
+model Invitation {
+  id                  String    @id @default(uuid()) @db.Uuid
+  facultyId           String    @map("faculty_id") @db.Uuid
+  tokenHash           String    @map("token_hash")
+  expiresAt           DateTime  @map("expires_at")
+  usedAt              DateTime? @map("used_at")
+  createdByAccountId  String    @map("created_by_account_id") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  faculty    Faculty @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  createdBy  Account @relation("CreatedInvitations", fields: [createdByAccountId], references: [id], onDelete: Restrict)
+
+  @@unique([tokenHash])
+  @@index([facultyId, expiresAt])
+  @@map("invitations")
+}
+
+model VerificationCode {
+  id           String   @id @default(uuid()) @db.Uuid
+  accountId    String   @map("account_id") @db.Uuid
+  codeHash     String   @map("code_hash")
+  expiresAt    DateTime @map("expires_at")
+  purpose      VerificationCodePurpose
+  attemptCount Int      @default(0) @map("attempt_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("verification_codes")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  accountId String    @map("account_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// =============================================================================
+// Config & Audit
+// =============================================================================
+
+model SystemConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  action         String
+  entityType     String?  @map("entity_type")
+  entityId       String?  @map("entity_id") @db.Uuid
+  actorAccountId String   @map("actor_account_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  actor Account @relation(fields: [actorAccountId], references: [id], onDelete: Restrict)
+
+  @@map("audit_log")
+}

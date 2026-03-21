@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Soka base typography — plain CSS so @apply does not choke on nested theme keys (e.g. soka.body). */
+@layer base {
+  html {
+    color: #333333;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1 {
+    font-size: 1.75rem;
+    line-height: 1.2;
+    font-weight: 600;
+    color: #333333;
+  }
+  h2 {
+    font-size: 1.375rem;
+    line-height: 1.25;
+    font-weight: 600;
+    color: #333333;
+  }
+  h3 {
+    font-size: 1.125rem;
+    line-height: 1.35;
+    font-weight: 500;
+    color: #333333;
+  }
+}
