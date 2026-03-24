@@ -4,6 +4,8 @@ This app is a **full-stack Next.js** app with **API routes**, **middleware**, an
 
 **Recommended setup:** [Railway](https://railway.app) for the Next.js service **and** a Railway **PostgreSQL** database (one project, two services). This repo includes [`railway.json`](../railway.json) so build, migrations, and start commands are defined in code.
 
+**Quick PoC:** copy [`deployment/railway-poc-raw-editor.env`](../deployment/railway-poc-raw-editor.env) into the web service Raw Editor — see [`deployment/RAILWAY_POC.md`](../deployment/RAILWAY_POC.md).
+
 ---
 
 ## What you will create (big picture)
