@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  PrismaClientInitializationError,
+  PrismaClientKnownRequestError,
+} from "@prisma/client/runtime/library";
 import { prisma } from "@/lib/db/client";
 import { verifyPassword, hashPassword } from "@/lib/auth/password";
 import { signToken } from "@/lib/auth/jwt";
@@ -98,6 +102,38 @@ export async function POST(request: Request) {
     return response;
   } catch (e) {
     console.error("[auth/login]", e);
+
+    if (e instanceof PrismaClientInitializationError) {
+      return NextResponse.json(
+        {
+          error:
+            "Cannot connect to the database. In Vercel, set DATABASE_URL to your hosted Postgres URL (often add ?sslmode=require), apply to Production, and redeploy.",
+        },
+        { status: 503 }
+      );
+    }
+
+    if (e instanceof PrismaClientKnownRequestError) {
+      if (e.code === "P1001" || e.code === "P1017") {
+        return NextResponse.json(
+          {
+            error:
+              "Database unreachable from this server. Check DATABASE_URL, allow Vercel IPs if your DB is IP-restricted, and use your provider’s serverless/pooled connection string if they offer one.",
+          },
+          { status: 503 }
+        );
+      }
+      if (e.code === "P2021" || e.code === "P1003") {
+        return NextResponse.json(
+          {
+            error:
+              "Database is empty or out of date. From your machine with the same DATABASE_URL: run npx prisma migrate deploy (and npm run db:seed if you need accounts).",
+          },
+          { status: 503 }
+        );
+      }
+    }
+
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
