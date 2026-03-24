@@ -108,6 +108,7 @@ export async function POST(request: Request) {
         {
           error:
             "Cannot connect to the database. In Vercel, set DATABASE_URL to your hosted Postgres URL (often add ?sslmode=require), apply to Production, and redeploy.",
+          detail: e.message,
         },
         { status: 503 }
       );
