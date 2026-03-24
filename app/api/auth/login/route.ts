@@ -9,6 +9,19 @@ const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.JWT_SECRET) {
+      console.error(
+        "[auth/login] JWT_SECRET is not set — add it in Vercel → Settings → Environment Variables (Production and Preview)."
+      );
+      return NextResponse.json(
+        {
+          error:
+            "Sign-in is not configured on this deployment (missing JWT_SECRET). Add it in Vercel environment variables and redeploy.",
+        },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const { email, password } = body;
     if (!email || !password) {
@@ -83,7 +96,8 @@ export async function POST(request: Request) {
     });
     response.headers.set("Set-Cookie", createAuthCookie(accessToken));
     return response;
-  } catch {
+  } catch (e) {
+    console.error("[auth/login]", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
