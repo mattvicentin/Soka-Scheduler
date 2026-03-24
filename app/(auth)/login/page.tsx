@@ -26,7 +26,12 @@ function LoginForm() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Login failed");
+        const base = data.error ?? "Login failed";
+        setError(
+          typeof data.detail === "string" && data.detail.trim()
+            ? `${base}\n\n${data.detail}`
+            : base
+        );
         return;
       }
       router.replace(redirect);
@@ -71,7 +76,7 @@ function LoginForm() {
           />
         </div>
         {error && (
-          <p className="text-sm text-soka-error">{error}</p>
+          <p className="whitespace-pre-wrap break-words text-sm text-soka-error">{error}</p>
         )}
         <button
           type="submit"
