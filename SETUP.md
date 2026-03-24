@@ -150,7 +150,13 @@ npm run start
 
 ---
 
-## 8. Pushing to GitHub — checklist
+## 8. Sharing a public test URL (not GitHub Pages for the app)
+
+The running app requires a **Node host** and **Postgres**. See **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)** for **Vercel** setup. GitHub Pages can only host the optional static **notice** page in this repo, not the Next.js app itself.
+
+---
+
+## 9. Pushing to GitHub — checklist
 
 - [ ] `.env` is **not** committed (verify with `git status`).
 - [ ] **Secrets** live in GitHub **Actions secrets** / hosting provider env, not in the repo.
@@ -159,7 +165,7 @@ npm run start
 
 ---
 
-## 9. External services (optional)
+## 10. External services (optional)
 
 | Service | When |
 |---------|------|
@@ -168,7 +174,7 @@ npm run start
 
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 | Issue | What to try |
 |-------|-------------|
