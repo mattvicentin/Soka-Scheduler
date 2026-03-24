@@ -43,7 +43,8 @@ Add the same variables you use locally (see [.env.example](../.env.example)):
 
 | Name | Notes |
 |------|--------|
-| `DATABASE_URL` | Production Postgres URL |
+| `DATABASE_URL` | Production Postgres URL (Supabase: transaction pooler **6543** with `?sslmode=require&pgbouncer=true`) |
+| `DIRECT_URL` | Same DB, **direct or session** connection for Prisma migrations (Supabase: pooler **5432** or `db.<ref>.supabase.co:5432`). **Required** after `schema.prisma` includes `directUrl`. Local dev: copy `DATABASE_URL`. |
 | `JWT_SECRET` | `openssl rand -base64 32` |
 | `ADMIN_EMAIL` | Admin login email |
 | `ADMIN_PASSWORD` | Strong password for seed |
