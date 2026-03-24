@@ -1,109 +1,157 @@
-# Deployment (sharing a test URL with users)
+# Deployment (Railway + PostgreSQL)
 
-## GitHub Pages cannot run this application
+This app is a **full-stack Next.js** app with **API routes**, **middleware**, and **PostgreSQL**. It cannot run on static hosts (e.g. GitHub Pages alone).
 
-[GitHub Pages](https://docs.github.com/pages/getting-started-with-github-pages/about-github-pages) serves **static files only** (HTML, CSS, client JS). It does **not**:
-
-- Run a **Node.js** server
-- Execute **Next.js API routes** (`/api/*`)
-- Connect to **PostgreSQL**
-- Run **middleware** (auth cookies, JWT)
-
-Soka Scheduling is a **full-stack** Next.js app with a database. **There is no supported way to host the working app on GitHub Pages** without rewriting it as a separate static front end and a hosted API elsewhere.
-
-**What we provide instead:**
-
-1. **Recommended:** Deploy the real app to **Vercel** (or similar) — free tier, connects to your GitHub repo, gives you a URL like `https://your-project.vercel.app` for testers.
-2. **Optional:** A tiny **informational** site on GitHub Pages (this repo includes a workflow) that explains the above and points people to your Vercel URL once you set it.
+**Recommended setup:** [Railway](https://railway.app) for the Next.js service **and** a Railway **PostgreSQL** database (one project, two services). This repo includes [`railway.json`](../railway.json) so build, migrations, and start commands are defined in code.
 
 ---
 
-## Option A — Vercel (recommended for “test with other users”)
+## What you will create (big picture)
 
-### 1. Create a PostgreSQL database
+1. A **Railway project** (like a folder for your apps).
+2. A **PostgreSQL** database on Railway (managed Postgres).
+3. A **web service** that runs this GitHub repo (builds Next.js and runs `next start`).
+4. Railway will connect the database to the app and inject **`DATABASE_URL`** automatically once you link them.
 
-Use any hosted Postgres (examples):
+You will also set a few **environment variables** (secrets and your public URL).
 
-- [Neon](https://neon.tech) (free tier)
-- [Supabase](https://supabase.com) (database only)
-- [Railway](https://railway.app)
+---
 
-Copy the connection string (often needs `?sslmode=require`).
+## Step 1 — Push this code to GitHub
 
-### 2. Import the project in Vercel
+Railway deploys from a **Git repository**. If your code is not on GitHub yet:
 
-1. Go to [vercel.com](https://vercel.com) and sign in with GitHub.
-2. **Add New Project** → import **Soka-Scheduler** (or your repo name).
-3. **Framework Preset:** Next.js (auto-detected).
-4. **Root directory:** `.` (default).
+1. Create a repo on GitHub (empty is fine).
+2. In your project folder on your computer, run (replace `YOUR_USER` and `YOUR_REPO`):
 
-### 3. Environment variables (Vercel → Project → Settings → Environment Variables)
+   ```bash
+   git remote add origin https://github.com/YOUR_USER/YOUR_REPO.git
+   git push -u origin main
+   ```
 
-Add the same variables you use locally (see [.env.example](../.env.example)):
+If the repo already exists, just **push the latest `main`** after pulling these changes.
+
+---
+
+## Step 2 — Create a Railway project and database
+
+1. Log in at [railway.app](https://railway.app) (same account as your paid plan).
+2. Click **New Project**.
+3. Choose **Empty Project** (or **Provision PostgreSQL** if you see it—we still add the app next).
+
+### Add PostgreSQL
+
+1. In the project, click **Create** or **+ New**.
+2. Select **Database** → **PostgreSQL**.
+3. Wait until it shows as **Active**. You do **not** need to copy SQL or create tables by hand; Prisma migrations will create them on deploy.
+
+---
+
+## Step 3 — Deploy this repository as a web service
+
+1. In the **same Railway project**, click **Create** / **+ New** → **GitHub Repo**.
+2. Authorize Railway to read your GitHub if asked.
+3. Select the **Soka-Scheduler** (or `soka-scheduling`) repository.
+4. Railway will detect Node/Next and use **`railway.json`** for:
+   - **Build:** `npm run build`
+   - **Pre-deploy:** `npm run db:migrate:deploy` (applies Prisma migrations)
+   - **Start:** `npm run start` (listens on `PORT`, binds `0.0.0.0`)
+
+---
+
+## Step 4 — Connect the database to the app
+
+The web service must receive **`DATABASE_URL`**.
+
+1. Open your **PostgreSQL** service → **Variables** (or **Connect**).
+2. Railway usually shows a variable like **`DATABASE_URL`** or **`POSTGRES_URL`**.
+3. Open your **web service** (the Next.js app) → **Variables** → **Add variable reference** (or **Raw editor**).
+4. **Reference** the Postgres service’s `DATABASE_URL` into the web service so the app and pre-deploy migration use the same value.
+
+If Railway does not auto-link:
+
+- Copy **Postgres connection URL** from the database’s **Connect** tab.
+- On the web service, add variable **`DATABASE_URL`** = that URL (no extra quotes).
+
+**Important for builds:** If `npm run build` fails during `prisma generate` with a missing `DATABASE_URL`, enable that variable for the **build** phase as well (Railway: variable → **Available at build time** / include in build—wording may vary).
+
+---
+
+## Step 5 — Environment variables on the web service
+
+In the **web** service → **Variables**, add (names must match exactly):
+
+| Name | What to put |
+|------|----------------|
+| `JWT_SECRET` | Run on your Mac: `openssl rand -base64 32` — paste the output. |
+| `ADMIN_EMAIL` | Email you use for env-based admin login (e.g. your `@soka.edu`). |
+| `ADMIN_PASSWORD` | Strong password for that admin account. |
+| `NEXT_PUBLIC_APP_URL` | Your app’s **public URL** from Railway (e.g. `https://something.up.railway.app`) — **no trailing slash**. After the first deploy, open the service → **Settings** → **Networking** → generate **Public URL**, then set this and redeploy. |
+
+Optional (email):
 
 | Name | Notes |
 |------|--------|
-| `DATABASE_URL` | Production Postgres URL (Supabase: transaction pooler **6543** with `?sslmode=require&pgbouncer=true`) |
-| `DIRECT_URL` | Same DB, **direct or session** connection for Prisma migrations (Supabase: pooler **5432** or `db.<ref>.supabase.co:5432`). **Required** after `schema.prisma` includes `directUrl`. Local dev: copy `DATABASE_URL`. |
-| `JWT_SECRET` | `openssl rand -base64 32` |
-| `ADMIN_EMAIL` | Admin login email |
-| `ADMIN_PASSWORD` | Strong password for seed |
-| `NEXT_PUBLIC_APP_URL` | **Your Vercel URL**, e.g. `https://soka-scheduler.vercel.app` (no trailing slash) |
-| `EMAIL_PROVIDER` | `console` logs magic links in Vercel **function logs**; use `resend` + `RESEND_API_KEY` for real email |
+| `EMAIL_PROVIDER` | `console` logs codes in Railway **logs**; or use `resend` + `RESEND_API_KEY`. |
 
-Apply to **Production** (and **Preview** if you want preview deployments to work with auth).
+`NODE_ENV` is set automatically in production; you do not need to set it.
 
-### 4. First-time database setup
+---
 
-After the first successful deploy (or from your machine against the **same** `DATABASE_URL`):
+## Step 6 — First deploy and public URL
+
+1. Trigger a **Deploy** (push to `main` or **Redeploy** in Railway).
+2. Watch **Deployments** → **Build logs** and **Deploy logs**. Pre-deploy should run migrations; start should show Next listening on `PORT`.
+3. **Networking:** Enable **Public networking** and copy the **HTTPS URL**.
+4. Set **`NEXT_PUBLIC_APP_URL`** to that URL (Step 5) and **redeploy** once so invitation links and redirects use the right host.
+
+---
+
+## Step 7 — Seed data (first time only)
+
+Migrations create **empty** tables. To load default programs, terms, and admin/test users (same as local `npm run db:seed`):
+
+On your **Mac**, in the project folder:
 
 ```bash
-# From your laptop, with DATABASE_URL pointing at production:
-npx prisma migrate deploy
+# Paste your Railway DATABASE_URL for one command only (from Railway Postgres Variables),
+# or export it for the session:
+export DATABASE_URL='postgresql://...'
+
+npx prisma migrate deploy   # no-op if already applied
 npm run db:seed
 ```
 
-Or use Vercel CLI / a one-off script — the important part is **migrations + seed** run once against that database.
-
-### 5. Redeploy
-
-Trigger a redeploy in Vercel after changing env vars (especially `NEXT_PUBLIC_APP_URL`).
-
-### Build notes
-
-- **`postinstall`** runs `prisma generate` so the Prisma client exists during `next build` on Vercel.
-- **`vercel.json`** pins the Node.js version for consistent builds.
+Use the **same** `DATABASE_URL` Railway uses. After this, you can log in with the seeded accounts or `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
 
 ---
 
-## Option B — Other hosts
+## Step 8 — Optional: GitHub Pages notice site
 
-Any platform that runs **Node.js** and supports **Next.js** + **long-lived connections to Postgres** can work (e.g. **Railway**, **Render**, **Fly.io**, **AWS**). The same env vars and `prisma migrate deploy` + seed apply.
-
----
-
-## Optional — GitHub Pages “info” site only
-
-This repo includes:
-
-- `standalone/github-pages-notice/index.html` — short page explaining that the app is not on Pages.
-- `.github/workflows/github-pages.yml` — publishes that folder to **GitHub Pages** via Actions.
-
-### Enable it
-
-1. Repo **Settings** → **Pages** → **Build and deployment** → Source: **GitHub Actions**.
-2. Push to `main` (or run the workflow manually). The **Deploy GitHub Pages** workflow will run.
-3. After it succeeds, the site URL will be like:  
-   `https://<user>.github.io/<repo>/`
-
-Edit `standalone/github-pages-notice/index.html` and replace `YOUR_VERCEL_URL_HERE` with your real Vercel URL so testers have one click to the app.
-
-**This is not the scheduling app** — only a landing page. The app itself stays on Vercel (or another Node host).
+The repo can still publish a **static** notice page (not the app). Edit `standalone/github-pages-notice/index.html` and set your **Railway public URL** where it says to replace the placeholder. See the same file for enabling the GitHub Actions workflow.
 
 ---
 
-## Security checklist (public test)
+## Troubleshooting
 
-- Use a **strong** `JWT_SECRET` and `ADMIN_PASSWORD`.
-- Prefer **Resend** (or similar) for email instead of `console` if testers must complete invitation flows without access to server logs.
-- Rotate secrets if they were ever committed or shared.
+| Problem | What to check |
+|--------|----------------|
+| Build fails on Prisma | `DATABASE_URL` available at **build** time; `postinstall` runs `prisma generate`. |
+| Pre-deploy fails | `DATABASE_URL` set on the **web** service; Postgres running. |
+| App crashes on start | Logs for `PORT`; `railway.json` start command is `npm run start`. |
+| 503 / DB errors in browser | Login page may show a **detail** line; check Railway **Deploy logs**. |
+| Health check fails | `healthcheckPath` is `/` in `railway.json`; ensure home page returns 200 without blocking (middleware allows `/`). |
+
+---
+
+## Security checklist
+
+- Strong **`JWT_SECRET`** and **`ADMIN_PASSWORD`**.
+- Rotate any secret ever pasted into chat or screenshots.
+- Prefer **Resend** (or similar) for real email if testers need magic links without reading server logs.
+
+---
+
+## Other hosts
+
+The same app can run on **Render**, **Fly.io**, **Vercel + external Postgres**, etc.: Node 20, `npm run build`, `npx prisma migrate deploy`, `npm run start` with **`PORT`**, and the same env vars as above.

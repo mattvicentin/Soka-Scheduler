@@ -15,12 +15,12 @@ export async function POST(request: Request) {
   try {
     if (!process.env.JWT_SECRET) {
       console.error(
-        "[auth/login] JWT_SECRET is not set — add it in Vercel → Settings → Environment Variables (Production and Preview)."
+        "[auth/login] JWT_SECRET is not set — add it in your host’s environment variables (e.g. Railway → service → Variables) and redeploy."
       );
       return NextResponse.json(
         {
           error:
-            "Sign-in is not configured on this deployment (missing JWT_SECRET). Add it in Vercel environment variables and redeploy.",
+            "Sign-in is not configured on this deployment (missing JWT_SECRET). Set JWT_SECRET in your host’s environment variables and redeploy.",
         },
         { status: 503 }
       );
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Cannot connect to the database. In Vercel, set DATABASE_URL to your hosted Postgres URL (often add ?sslmode=require), apply to Production, and redeploy.",
+            "Cannot connect to the database. Set DATABASE_URL to your PostgreSQL connection string in your host’s environment (e.g. Railway: reference the Postgres plugin’s URL), then redeploy.",
           detail: e.message,
         },
         { status: 503 }
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error:
-              "Database unreachable from this server. Check DATABASE_URL, allow Vercel IPs if your DB is IP-restricted, and use your provider’s serverless/pooled connection string if they offer one.",
+              "Database unreachable from this server. Check DATABASE_URL, firewall rules, and that the database allows connections from your host.",
           },
           { status: 503 }
         );

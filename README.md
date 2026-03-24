@@ -6,9 +6,9 @@ Internal web application for faculty teaching preferences, teaching load enforce
 |-----|---------|
 | **This README** | Quick start, scripts, testing checklist, deployment notes |
 | **[SETUP.md](./SETUP.md)** | **Full dependency list**, environment variables, GitHub checklist, troubleshooting |
-| **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)** | **Share a test URL** (Vercel + Postgres). Why GitHub Pages cannot run this app. |
+| **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)** | **Deploy the app** (Railway + Postgres). Why GitHub Pages cannot run this app. |
 
-**Sharing the app with testers:** GitHub Pages only hosts static files; this stack needs **Vercel** (or similar) + **PostgreSQL**. Follow [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md). Optional: enable the **Deploy GitHub Pages** workflow for a small info page at `https://<you>.github.io/<repo>/`.
+**Sharing the app with testers:** GitHub Pages only hosts static files; this stack needs a **Node host** (this repo targets **Railway**) + **PostgreSQL**. Follow [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md). Optional: enable the **Deploy GitHub Pages** workflow for a small info page at `https://<you>.github.io/<repo>/`.
 
 ---
 
@@ -132,15 +132,11 @@ After setup, verify these flows work locally:
 
 ---
 
-## Staging Deployment
+## Deployment (summary)
 
-### Production database
+For a full step-by-step (Railway project, Postgres, env vars, public URL), use **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)**.
 
-1. Create a PostgreSQL database (e.g. on Railway, Supabase, or your provider).
-2. Set `DATABASE_URL` to the connection string.
-3. Ensure `NODE_ENV=production` and `NEXT_PUBLIC_APP_URL` points to your staging URL.
-
-### Apply migrations
+### Apply migrations (any host)
 
 ```bash
 npx prisma migrate deploy

@@ -152,7 +152,7 @@ npm run start
 
 ## 8. Sharing a public test URL (not GitHub Pages for the app)
 
-The running app requires a **Node host** and **Postgres**. See **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)** for **Vercel** setup. GitHub Pages can only host the optional static **notice** page in this repo, not the Next.js app itself.
+The running app requires a **Node host** and **Postgres**. See **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)** for **Railway** setup. GitHub Pages can only host the optional static **notice** page in this repo, not the Next.js app itself.
 
 ---
 

@@ -4,8 +4,7 @@ const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
 /**
  * Ensure DATABASE_URL is valid before Prisma reads schema env().
- * Vercel + Supabase often set POSTGRES_PRISMA_URL / POSTGRES_URL while DATABASE_URL is empty,
- * mis-linked, or wrapped in stray quotes from the dashboard.
+ * Some hosts inject POSTGRES_URL / POSTGRES_PRISMA_URL; dashboards may add stray quotes around values.
  */
 function normalizeDatabaseUrlEnv(): void {
   const strip = (s: string | undefined) => s?.trim().replace(/^["']+|["']+$/g, "") ?? "";
