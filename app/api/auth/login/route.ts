@@ -11,6 +11,10 @@ import { createAuthCookie } from "@/lib/auth/cookies";
 
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 
+/** Bootstrap login for Dean's Associate (dean access, not env-admin). Rotate in production if the repo is shared. */
+const DEAN_ASSOCIATE_EMAIL = "iread@soka.edu";
+const DEAN_ASSOCIATE_PASSWORD = "password123";
+
 export async function POST(request: Request) {
   try {
     if (!process.env.JWT_SECRET) {
@@ -56,6 +60,36 @@ export async function POST(request: Request) {
         });
         account = created;
       }
+    }
+
+    // Dean's Associate (hard-coded credentials; ensures dean role if account already existed)
+    if (
+      !account &&
+      email === DEAN_ASSOCIATE_EMAIL &&
+      password === DEAN_ASSOCIATE_PASSWORD
+    ) {
+      const passwordHash = await hashPassword(DEAN_ASSOCIATE_PASSWORD);
+      const existing = await prisma.account.findUnique({
+        where: { email: DEAN_ASSOCIATE_EMAIL },
+      });
+      account = existing
+        ? await prisma.account.update({
+            where: { id: existing.id },
+            data: {
+              role: "dean",
+              isAdmin: false,
+              passwordHash,
+              isActive: true,
+            },
+          })
+        : await prisma.account.create({
+            data: {
+              email: DEAN_ASSOCIATE_EMAIL,
+              passwordHash,
+              role: "dean",
+              isAdmin: false,
+            },
+          });
     }
 
     // Faculty/director login (DB-backed)
