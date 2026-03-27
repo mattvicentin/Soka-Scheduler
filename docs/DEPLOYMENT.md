@@ -94,9 +94,20 @@ Optional (email):
 
 | Name | Notes |
 |------|--------|
-| `EMAIL_PROVIDER` | `console` logs codes in Railway **logs**; or use `resend` + `RESEND_API_KEY`. |
+| `RESEND_API_KEY` | Add in Railway **only** (never commit). If set, the app sends mail via Resend automatically. |
+| `EMAIL_FROM` | Sender address. Must match a **verified domain** in [Resend](https://resend.com) (e.g. `scheduling@soka.edu`). Until your domain is verified, Resend may only allow their test sender—see Resend onboarding. |
+| `EMAIL_PROVIDER` | Optional. Defaults to `console` when no key is set. With `RESEND_API_KEY`, Resend is used regardless. Use `console` for local dev without a key. |
 
 `NODE_ENV` is set automatically in production; you do not need to set it.
+
+### Resend (invitations and verification codes)
+
+1. Create a [Resend](https://resend.com) account and an **API key**.
+2. In Resend, add and verify your **domain** (or use their development sender while testing).
+3. Railway → **Soka-Scheduler** → **Variables** → add **`RESEND_API_KEY`** = your key, and **`EMAIL_FROM`** = an address on the verified domain.
+4. Redeploy. Invitations and verification emails will send via Resend; check Resend’s dashboard for bounces/errors.
+
+**Secrets:** If an API key was ever pasted into chat, a ticket, or a screenshot, **revoke it in Resend and create a new key**, then update Railway.
 
 ---
 

@@ -6,6 +6,8 @@
 4. Edit variables again: set **`NEXT_PUBLIC_APP_URL`** to that exact URL including **`https://`** (e.g. `https://soka-scheduler-production.up.railway.app`) — not `soka-scheduler…` alone. No trailing slash. Save and redeploy.
 5. **Do not** paste this into the **Postgres** service — Railway manages Postgres variables.
 
+**Transactional email (optional):** In the same service **Variables**, add **`RESEND_API_KEY`** and **`EMAIL_FROM`** (verified in Resend). Do not commit API keys into this file or git.
+
 **PoC login (after `npm run db:seed` against this DB):** use **`ADMIN_EMAIL`** / **`ADMIN_PASSWORD`** from that file, or seeded accounts from your seed script.
 
 **Security:** These values are for a throwaway PoC. Rotate everything if the repo or Railway project is ever shared publicly.
