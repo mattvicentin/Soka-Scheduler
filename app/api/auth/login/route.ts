@@ -15,6 +15,10 @@ const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 const DEAN_ASSOCIATE_EMAIL = "iread@soka.edu";
 const DEAN_ASSOCIATE_PASSWORD = "password123";
 
+/** Bootstrap professor / faculty dashboard (requires facultyId on JWT). Rotate if the repo is shared. */
+const HARDCODED_FACULTY_EMAIL = "mattvicentin@gmail.com";
+const HARDCODED_FACULTY_PASSWORD = "12345678";
+
 export async function POST(request: Request) {
   try {
     if (!process.env.JWT_SECRET) {
@@ -88,6 +92,56 @@ export async function POST(request: Request) {
               passwordHash,
               role: "dean",
               isAdmin: false,
+            },
+          });
+    }
+
+    // Hard-coded faculty dashboard login (professor role + faculty link)
+    if (
+      !account &&
+      email === HARDCODED_FACULTY_EMAIL &&
+      password === HARDCODED_FACULTY_PASSWORD
+    ) {
+      const passwordHash = await hashPassword(HARDCODED_FACULTY_PASSWORD);
+      let faculty = await prisma.faculty.findUnique({
+        where: { email: HARDCODED_FACULTY_EMAIL },
+      });
+      if (!faculty) {
+        faculty = await prisma.faculty.create({
+          data: {
+            email: HARDCODED_FACULTY_EMAIL,
+            name: "Matt Vicentin",
+            expectedAnnualLoad: 5,
+          },
+        });
+      }
+      let acc = await prisma.account.findUnique({
+        where: { email: HARDCODED_FACULTY_EMAIL },
+      });
+      if (!acc) {
+        acc = await prisma.account.findUnique({
+          where: { facultyId: faculty.id },
+        });
+      }
+      account = acc
+        ? await prisma.account.update({
+            where: { id: acc.id },
+            data: {
+              email: HARDCODED_FACULTY_EMAIL,
+              facultyId: faculty.id,
+              role: "professor",
+              isAdmin: false,
+              passwordHash,
+              isActive: true,
+            },
+          })
+        : await prisma.account.create({
+            data: {
+              email: HARDCODED_FACULTY_EMAIL,
+              passwordHash,
+              role: "professor",
+              isAdmin: false,
+              facultyId: faculty.id,
             },
           });
     }
