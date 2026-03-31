@@ -26,6 +26,7 @@ export default function DeanInvitationsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [invitingAll, setInvitingAll] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = () => {
     apiFetch<{ data: Invitation[] }>("/api/invitations").then((r) => {
@@ -80,6 +81,25 @@ export default function DeanInvitationsPage() {
       setError(null);
       alert(res.data.message);
     }
+  };
+
+  const deleteInvitation = async (invitationId: string) => {
+    if (
+      !confirm(
+        "Remove this invitation? The faculty member can be invited again with a new email."
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setDeletingId(invitationId);
+    const res = await apiFetch(`/api/invitations/${invitationId}`, { method: "DELETE" });
+    setDeletingId(null);
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+    load();
   };
 
   const facultyWithoutAccounts = faculty.filter((f) => !facultyWithAccounts.has(f.id));
@@ -173,6 +193,9 @@ export default function DeanInvitationsPage() {
                 <th className="border border-soka-border px-4 py-2 text-left text-sm font-medium text-soka-body">
                   Expires
                 </th>
+                <th className="border border-soka-border px-4 py-2 text-left text-sm font-medium text-soka-body">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -199,6 +222,22 @@ export default function DeanInvitationsPage() {
                   </td>
                   <td className="border border-soka-border px-4 py-2 text-sm text-soka-muted">
                     {new Date(i.expires_at).toLocaleDateString()}
+                  </td>
+                  <td className="border border-soka-border px-4 py-2">
+                    {i.status === "used" ? (
+                      <span className="text-xs text-soka-muted" title="Account already created">
+                        —
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => deleteInvitation(i.id)}
+                        disabled={deletingId === i.id}
+                        className="rounded border border-soka-error/50 px-2 py-1 text-xs font-medium text-soka-error hover:bg-soka-error/10 disabled:opacity-50"
+                      >
+                        {deletingId === i.id ? "Removing…" : "Delete"}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

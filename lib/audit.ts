@@ -7,6 +7,7 @@ const AUDIT_ACTIONS = [
   "change_permission",
   "publish_schedule",
   "create_invitation",
+  "delete_invitation",
   "slot_create",
   "slot_update",
   "slot_delete",
