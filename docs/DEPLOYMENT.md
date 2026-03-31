@@ -94,20 +94,31 @@ Optional (email):
 
 | Name | Notes |
 |------|--------|
-| `RESEND_API_KEY` | Add in Railway **only** (never commit). If set, the app sends mail via Resend automatically. |
-| `EMAIL_FROM` | Sender address. Must match a **verified domain** in [Resend](https://resend.com) (e.g. `scheduling@soka.edu`). Until your domain is verified, Resend may only allow their test sender—see Resend onboarding. |
-| `EMAIL_PROVIDER` | Optional. Defaults to `console` when no key is set. With `RESEND_API_KEY`, Resend is used regardless. Use `console` for local dev without a key. |
+| `EMAIL_PROVIDER` | `console` \| `emailjs` \| `resend`. If **omit**: uses Resend when `RESEND_API_KEY` is set; else EmailJS when all `EMAILJS_*` are set; else console. Set **`emailjs`** for PoC when you do not have DNS for Resend; set **`resend`** when the school domain is verified. |
 
-`NODE_ENV` is set automatically in production; you do not need to set it.
+**EmailJS (PoC, no DNS on your domain)**
 
-### Resend (invitations and verification codes)
+Works through [EmailJS](https://www.emailjs.com): you connect a personal Gmail (or other) **email service** in their dashboard—no SPF/DKIM on `soka.edu` required.
+
+1. Create an account → **Email Services** → add your SMTP (e.g. Gmail).
+2. **Email Templates** → new template. Map content to these **template parameters** (exact names):
+   - **`to_email`** — set the template’s “To” field to `{{to_email}}`.
+   - **`email_subject`** — subject line `{{email_subject}}`.
+   - **`email_body`** — plain text `{{email_body}}`.
+   - **`email_html`** — HTML body `{{email_html}}` (use this in the message body, or duplicate as needed).
+3. **Account** → copy **Public Key** and **Private Key** (private key is required for server-side REST calls).
+4. Railway → **`EMAIL_PROVIDER`** = `emailjs`, plus **`EMAILJS_SERVICE_ID`**, **`EMAILJS_TEMPLATE_ID`**, **`EMAILJS_PUBLIC_KEY`**, **`EMAILJS_PRIVATE_KEY`** (from the EmailJS dashboard). Do not commit these.
+
+**Switching to Resend later:** set **`EMAIL_PROVIDER`** = `resend`, add **`RESEND_API_KEY`** and **`EMAIL_FROM`**, and remove or leave EmailJS vars unused.
+
+### Resend (production — school domain)
 
 1. Create a [Resend](https://resend.com) account and an **API key**.
-2. In Resend, add and verify your **domain** (or use their development sender while testing).
-3. Railway → **Soka-Scheduler** → **Variables** → add **`RESEND_API_KEY`** = your key, and **`EMAIL_FROM`** = an address on the verified domain.
-4. Redeploy. Invitations and verification emails will send via Resend; check Resend’s dashboard for bounces/errors.
+2. In Resend, add and verify your **domain** (DNS at your institution).
+3. Railway → **`EMAIL_PROVIDER`** = `resend` (recommended once DNS is ready), **`RESEND_API_KEY`**, **`EMAIL_FROM`** on the verified domain.
+4. Redeploy; check Resend’s dashboard for bounces/errors.
 
-**Secrets:** If an API key was ever pasted into chat, a ticket, or a screenshot, **revoke it in Resend and create a new key**, then update Railway.
+**Secrets:** Never commit API keys; rotate any key ever pasted into chat or a ticket.
 
 ---
 

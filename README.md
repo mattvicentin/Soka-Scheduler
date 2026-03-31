@@ -43,9 +43,10 @@ Edit `.env` and set:
 | `ADMIN_EMAIL` | Yes (for seed) | Admin login email (default: admin@soka.edu) |
 | `ADMIN_PASSWORD` | Yes (for seed) | Admin password; required for seed to create admin account |
 | `NEXT_PUBLIC_APP_URL` | Yes | App URL for invitation links. Local: `http://localhost:3000` |
-| `EMAIL_PROVIDER` | No | `console` (default) or `resend` |
-| `RESEND_API_KEY` | No | If set, Resend mode is used for real email delivery |
-| `EMAIL_FROM` | No | From address when using Resend (default: noreply@soka.edu) |
+| `EMAIL_PROVIDER` | No | `console`, `emailjs` (PoC), or `resend` (production). If unset: Resend when `RESEND_API_KEY` is set, else EmailJS when all `EMAILJS_*` are set. |
+| `RESEND_API_KEY` | No | Resend API key; use with `EMAIL_PROVIDER=resend` or as default when no `EMAIL_PROVIDER` |
+| `EMAIL_FROM` | No | From address for Resend (default: noreply@soka.edu) |
+| `EMAILJS_*` | No | Service ID, template ID, public + private keys — see `docs/DEPLOYMENT.md` |
 
 ### 3. Database setup
 
@@ -180,8 +181,8 @@ npm run start
 - `JWT_SECRET` — Strong random secret
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD` — Admin credentials
 - `NEXT_PUBLIC_APP_URL` — Staging URL (e.g. `https://scheduling-staging.example.com`)
-- `RESEND_API_KEY` — For real email delivery
-- `EMAIL_FROM` — Verified sender domain
+- `EMAIL_PROVIDER` + **`emailjs`** vars — PoC email without school DNS (see `docs/DEPLOYMENT.md`)
+- `RESEND_API_KEY` / `EMAIL_FROM` — Production email after domain verification
 
 ---
 
