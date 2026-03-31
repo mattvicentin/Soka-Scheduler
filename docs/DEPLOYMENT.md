@@ -107,7 +107,8 @@ Works through [EmailJS](https://www.emailjs.com): you connect a personal Gmail (
    - **`email_body`** — plain text `{{email_body}}`.
    - **`email_html`** — HTML body `{{email_html}}` (use this in the message body, or duplicate as needed).
 3. **Account** → copy **Public Key** and **Private Key** (private key is required for server-side REST calls).
-4. Railway → **`EMAIL_PROVIDER`** = `emailjs`, plus **`EMAILJS_SERVICE_ID`**, **`EMAILJS_TEMPLATE_ID`**, **`EMAILJS_PUBLIC_KEY`**, **`EMAILJS_PRIVATE_KEY`** (from the EmailJS dashboard). Do not commit these.
+4. **Security (required for Railway / Next.js API routes):** EmailJS blocks server-side REST calls by default. Open [EmailJS Account → Security](https://dashboard.emailjs.com/admin/account/security) and **enable** “Allow API access for non-browser applications” (wording may vary). Without this, invites return **403** and logs show `API access from non-browser environments is currently disabled`.
+5. Railway → **`EMAIL_PROVIDER`** = `emailjs`, plus **`EMAILJS_SERVICE_ID`**, **`EMAILJS_TEMPLATE_ID`**, **`EMAILJS_PUBLIC_KEY`**, **`EMAILJS_PRIVATE_KEY`** (from the EmailJS dashboard). Do not commit these.
 
 **Switching to Resend later:** set **`EMAIL_PROVIDER`** = `resend`, add **`RESEND_API_KEY`** and **`EMAIL_FROM`**, and remove or leave EmailJS vars unused.
 
@@ -165,6 +166,7 @@ The repo can still publish a **static** notice page (not the app). Edit `standal
 | App crashes on start | Logs for `PORT`; `railway.json` start command is `npm run start`. |
 | 503 / DB errors in browser | Login page may show a **detail** line; check Railway **Deploy logs**. |
 | Health check fails | `healthcheckPath` is `/` in `railway.json`; ensure home page returns 200 without blocking (middleware allows `/`). |
+| Invite / email **500**, logs: `EmailJS send failed: 403` / non-browser | Enable **non-browser API access** in [EmailJS → Account → Security](https://dashboard.emailjs.com/admin/account/security). |
 
 ---
 
