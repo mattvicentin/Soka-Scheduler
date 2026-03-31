@@ -39,7 +39,9 @@ function AcceptInvitationForm() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to accept invitation");
+        const msg = data.error ?? "Failed to accept invitation";
+        const detail = data.details != null ? String(data.details) : "";
+        setError(detail ? `${msg} — ${detail}` : msg);
         return;
       }
       setSuccess(true);

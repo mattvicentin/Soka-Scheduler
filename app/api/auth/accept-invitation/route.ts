@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { hashToken } from "@/lib/auth/tokens";
 import { hashPassword } from "@/lib/auth/password";
@@ -46,6 +47,21 @@ export async function POST(request: Request) {
     });
     if (existingAccount) {
       return NextResponse.json({ error: "Account already exists" }, { status: 400 });
+    }
+
+    const accountForEmail = await prisma.account.findFirst({
+      where: {
+        email: { equals: invitation.faculty.email, mode: "insensitive" },
+      },
+    });
+    if (accountForEmail) {
+      return NextResponse.json(
+        {
+          error:
+            "This email is already registered. If it is your dean/admin login account, sign in from the login page with that password instead. Otherwise, ask a dean to use a different ADMIN_EMAIL so faculty can share the same address.",
+        },
+        { status: 409 }
+      );
     }
 
     const passwordHash = await hashPassword(password);
@@ -101,6 +117,15 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     console.error("Accept invitation error:", e);
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      const targets = (e.meta?.target as string[] | undefined)?.join(", ") ?? "unique field";
+      return NextResponse.json(
+        {
+          error: `Account could not be created (${targets} already in use). This email may already have an account.`,
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

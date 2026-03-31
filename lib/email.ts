@@ -88,6 +88,9 @@ async function sendViaResend(
 /**
  * EmailJS requires a dashboard template with these template parameters (or map them in the template UI):
  * - to_email, email_subject, email_body, email_html
+ *
+ * email_html is plain text with newlines (no <br>). EmailJS/HTML escapes {{email_html}}, which would
+ * show literal "<br>" if we injected HTML. Use in template: style white-space:pre-wrap, or {{{email_html}}} if your editor supports unescaped triple braces.
  */
 async function sendViaEmailJs(
   to: string,
@@ -101,7 +104,7 @@ async function sendViaEmailJs(
       "EmailJS requires EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY, EMAILJS_PRIVATE_KEY"
     );
   }
-  const html = options?.html ?? body.replace(/\n/g, "<br>");
+  const emailHtml = options?.html ?? body;
   const res = await fetch(EMAILJS_SEND_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -114,7 +117,7 @@ async function sendViaEmailJs(
         to_email: to,
         email_subject: subject,
         email_body: body,
-        email_html: html,
+        email_html: emailHtml,
       },
     }),
   });

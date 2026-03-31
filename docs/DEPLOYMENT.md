@@ -105,7 +105,9 @@ Works through [EmailJS](https://www.emailjs.com): you connect a personal Gmail (
    - **`to_email`** — set the template’s “To” field to `{{to_email}}`.
    - **`email_subject`** — subject line `{{email_subject}}`.
    - **`email_body`** — plain text `{{email_body}}`.
-   - **`email_html`** — HTML body `{{email_html}}` (use this in the message body, or duplicate as needed).
+   - **`email_html`** — Same as plain body (newlines preserved). In your template, wrap with  
+     `<div style="white-space:pre-wrap;">{{email_html}}</div>`  
+     so line breaks render. Do **not** rely on `<br>` inside `{{email_html}}` — EmailJS escapes it and recipients see literal `&lt;br&gt;`.
 3. **Account** → copy **Public Key** and **Private Key** (private key is required for server-side REST calls).
 4. **Security (required for Railway / Next.js API routes):** EmailJS blocks server-side REST calls by default. Open [EmailJS Account → Security](https://dashboard.emailjs.com/admin/account/security) and **enable** “Allow API access for non-browser applications” (wording may vary). Without this, invites return **403** and logs show `API access from non-browser environments is currently disabled`.
 5. Railway → **`EMAIL_PROVIDER`** = `emailjs`, plus **`EMAILJS_SERVICE_ID`**, **`EMAILJS_TEMPLATE_ID`**, **`EMAILJS_PUBLIC_KEY`**, **`EMAILJS_PRIVATE_KEY`** (from the EmailJS dashboard). Do not commit these.
