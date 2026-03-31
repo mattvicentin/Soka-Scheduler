@@ -58,7 +58,9 @@ export default function DeanInvitationsPage() {
       body: JSON.stringify({ faculty_id: facultyId }),
     });
     if (res.error) {
-      setError(res.error);
+      setError(
+        res.details != null ? `${res.error} — ${String(res.details)}` : res.error
+      );
       return;
     }
     setShowCreate(false);
@@ -73,7 +75,9 @@ export default function DeanInvitationsPage() {
     });
     setInvitingAll(false);
     if (res.error) {
-      setError(res.error);
+      setError(
+        res.details != null ? `${res.error} — ${String(res.details)}` : res.error
+      );
       return;
     }
     load();

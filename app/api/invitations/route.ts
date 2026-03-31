@@ -102,14 +102,31 @@ export async function POST(request: Request) {
       include: { faculty: true },
     });
 
-    await logAudit("create_invitation", auth.payload.accountId, "invitation", invitation.id);
-
     const link = `${BASE_URL}/accept-invitation?token=${token}`;
-    await sendEmail(
-      faculty.email,
-      "Invitation to Soka Academic Scheduling System",
-      `You have been invited to set up your account.\n\nClick the link below to get started (expires in ${expiryDays} days):\n\n${link}\n\nIf you did not expect this invitation, you can ignore this email.`
-    );
+    const body = `You have been invited to set up your account.\n\nClick the link below to get started (expires in ${expiryDays} days):\n\n${link}\n\nIf you did not expect this invitation, you can ignore this email.`;
+
+    try {
+      await sendEmail(
+        faculty.email,
+        "Invitation to Soka Academic Scheduling System",
+        body
+      );
+    } catch (emailErr) {
+      await prisma.invitation.delete({ where: { id: invitation.id } });
+      console.error("Create invitation email failed:", emailErr);
+      const details =
+        emailErr instanceof Error ? emailErr.message : "Unknown email error";
+      return NextResponse.json(
+        {
+          error:
+            "Invitation email could not be sent. No invitation was saved. Check EmailJS or Resend settings and Railway logs.",
+          details,
+        },
+        { status: 502 }
+      );
+    }
+
+    await logAudit("create_invitation", auth.payload.accountId, "invitation", invitation.id);
 
     return NextResponse.json({
       id: invitation.id,

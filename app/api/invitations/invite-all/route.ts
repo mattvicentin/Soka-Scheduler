@@ -50,6 +50,7 @@ export async function POST(request: Request) {
   const expiryDays = await getConfigWithDefault(CONFIG_KEYS.INVITATION_EXPIRY_DAYS, 7);
   const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
   let created = 0;
+  const emailFailures: string[] = [];
 
   for (const faculty of facultyToInvite) {
     const token = generateSecureToken();
@@ -65,11 +66,21 @@ export async function POST(request: Request) {
     });
 
     const link = `${BASE_URL}/accept-invitation?token=${token}`;
-    await sendEmail(
-      faculty.email,
-      "Invitation to Soka Academic Scheduling System",
-      `You have been invited to set up your account.\n\nClick the link below to get started (expires in ${expiryDays} days):\n\n${link}\n\nIf you did not expect this invitation, you can ignore this email.`
-    );
+    const body = `You have been invited to set up your account.\n\nClick the link below to get started (expires in ${expiryDays} days):\n\n${link}\n\nIf you did not expect this invitation, you can ignore this email.`;
+
+    try {
+      await sendEmail(
+        faculty.email,
+        "Invitation to Soka Academic Scheduling System",
+        body
+      );
+    } catch (emailErr) {
+      await prisma.invitation.delete({ where: { id: invitation.id } });
+      const msg = emailErr instanceof Error ? emailErr.message : "Unknown email error";
+      emailFailures.push(`${faculty.email}: ${msg}`);
+      console.error(`Invite-all email failed for ${faculty.email}:`, emailErr);
+      continue;
+    }
 
     await logAudit("create_invitation", auth.payload.accountId, "invitation", invitation.id);
     created++;
@@ -77,6 +88,12 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     created,
-    message: `Created ${created} invitation(s) for faculty without accounts.`,
+    message:
+      emailFailures.length > 0 && created === 0
+        ? `No invitations were saved — email delivery failed for every recipient. ${emailFailures[0]}`
+        : emailFailures.length > 0
+          ? `Created ${created} invitation(s). ${emailFailures.length} failed to send (not saved): ${emailFailures.slice(0, 3).join("; ")}`
+          : `Created ${created} invitation(s) for faculty without accounts.`,
+    email_failures: emailFailures.length > 0 ? emailFailures : undefined,
   });
 }

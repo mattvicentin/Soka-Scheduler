@@ -65,12 +65,35 @@ export async function POST(request: Request) {
       return acc;
     });
 
-    const code = await createVerificationCode(account.id, "account_setup");
-    await sendEmail(
-      account.email,
-      "Verify your account - Soka Academic Scheduling",
-      `Your verification code is: ${code}\n\nThis code expires in 15 minutes.`
-    );
+    let code: string;
+    try {
+      code = await createVerificationCode(account.id, "account_setup");
+      await sendEmail(
+        account.email,
+        "Verify your account - Soka Academic Scheduling",
+        `Your verification code is: ${code}\n\nThis code expires in 15 minutes.`
+      );
+    } catch (emailErr) {
+      await prisma.$transaction(async (tx) => {
+        await tx.verificationCode.deleteMany({ where: { accountId: account.id } });
+        await tx.account.delete({ where: { id: account.id } });
+        await tx.invitation.update({
+          where: { id: invitation.id },
+          data: { usedAt: null },
+        });
+      });
+      console.error("Accept invitation verification email failed:", emailErr);
+      const details =
+        emailErr instanceof Error ? emailErr.message : "Unknown email error";
+      return NextResponse.json(
+        {
+          error:
+            "Account was not created — verification email could not be sent. Try again after fixing email (EmailJS / Resend).",
+          details,
+        },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       message: "Account created. Check your email for the verification code.",
