@@ -15,13 +15,37 @@ const EMAILJS_SEND_URL = "https://api.emailjs.com/api/v1.0/email/send";
 
 export type EmailProviderName = "console" | "emailjs" | "resend";
 
+/** Railway / copy-paste often adds spaces, newlines, or wrapping quotes — EmailJS then returns “template not found”. */
+function trimEnv(value: string | undefined): string | undefined {
+  if (value == null) return undefined;
+  let s = value.trim();
+  if (
+    s.length >= 2 &&
+    ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'")))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  return s.length > 0 ? s : undefined;
+}
+
+function getEmailJsConfig():
+  | {
+      serviceId: string;
+      templateId: string;
+      publicKey: string;
+      privateKey: string;
+    }
+  | undefined {
+  const serviceId = trimEnv(process.env.EMAILJS_SERVICE_ID);
+  const templateId = trimEnv(process.env.EMAILJS_TEMPLATE_ID);
+  const publicKey = trimEnv(process.env.EMAILJS_PUBLIC_KEY);
+  const privateKey = trimEnv(process.env.EMAILJS_PRIVATE_KEY);
+  if (!serviceId || !templateId || !publicKey || !privateKey) return undefined;
+  return { serviceId, templateId, publicKey, privateKey };
+}
+
 function emailJsFullyConfigured(): boolean {
-  return Boolean(
-    process.env.EMAILJS_SERVICE_ID &&
-      process.env.EMAILJS_TEMPLATE_ID &&
-      process.env.EMAILJS_PUBLIC_KEY &&
-      process.env.EMAILJS_PRIVATE_KEY
-  );
+  return getEmailJsConfig() != null;
 }
 
 export function resolveEmailProvider(): EmailProviderName {
@@ -71,7 +95,8 @@ async function sendViaEmailJs(
   body: string,
   options?: { html?: string }
 ): Promise<void> {
-  if (!emailJsFullyConfigured()) {
+  const cfg = getEmailJsConfig();
+  if (!cfg) {
     throw new Error(
       "EmailJS requires EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY, EMAILJS_PRIVATE_KEY"
     );
@@ -81,10 +106,10 @@ async function sendViaEmailJs(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      service_id: process.env.EMAILJS_SERVICE_ID,
-      template_id: process.env.EMAILJS_TEMPLATE_ID,
-      user_id: process.env.EMAILJS_PUBLIC_KEY,
-      accessToken: process.env.EMAILJS_PRIVATE_KEY,
+      service_id: cfg.serviceId,
+      template_id: cfg.templateId,
+      user_id: cfg.publicKey,
+      accessToken: cfg.privateKey,
       template_params: {
         to_email: to,
         email_subject: subject,

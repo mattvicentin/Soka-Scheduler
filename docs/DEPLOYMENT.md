@@ -168,6 +168,7 @@ The repo can still publish a **static** notice page (not the app). Edit `standal
 | Health check fails | `healthcheckPath` is `/` in `railway.json`; ensure home page returns 200 without blocking (middleware allows `/`). |
 | Invite / email **500**, logs: `EmailJS send failed: 403` / non-browser | Enable **non-browser API access** in [EmailJS → Account → Security](https://dashboard.emailjs.com/admin/account/security). |
 | Invite saves row but no email / generic 500 | Fixed in app: failed sends **roll back** the invitation and return **502** with `details`. Check template **To** = `{{to_email}}`, **Subject** = `{{email_subject}}`, body uses `{{email_html}}`. Check EmailJS **Logs** and Railway deploy logs for the real error. |
+| EmailJS **400** “template ID not found” | The template must belong to the **same** EmailJS account as **`EMAILJS_PUBLIC_KEY`** (and matching private key). Re-copy **Public Key** from [Account → General](https://dashboard.emailjs.com/admin/account). In Railway, re-paste **`EMAILJS_SERVICE_ID`** from **Email Services** (must exist in that account). Remove stray **quotes/spaces** from variable values (the app trims these; redeploy after fixing). |
 
 ---
 
