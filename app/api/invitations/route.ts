@@ -103,13 +103,13 @@ export async function POST(request: Request) {
     });
 
     const link = `${BASE_URL}/accept-invitation?token=${token}`;
-    const body = `You have been invited to set up your account.\n\nClick the link below to get started (expires in ${expiryDays} days):\n\n${link}\n\nIf you did not expect this invitation, you can ignore this email.`;
+    const emailBody = `You have been invited to set up your account.\n\nClick the link below to get started (expires in ${expiryDays} days):\n\n${link}\n\nIf you did not expect this invitation, you can ignore this email.`;
 
     try {
       await sendEmail(
         faculty.email,
         "Invitation to Soka Academic Scheduling System",
-        body
+        emailBody
       );
     } catch (emailErr) {
       await prisma.invitation.delete({ where: { id: invitation.id } });
