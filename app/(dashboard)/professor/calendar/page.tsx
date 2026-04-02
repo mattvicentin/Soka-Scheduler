@@ -147,22 +147,48 @@ export default function ProfessorCalendarPage() {
     if (termFromUrl) setTermId(termFromUrl);
   }, [termFromUrl]);
 
+  const ensureDraft = async (): Promise<string | null> => {
+    if (draftVersion) return draftVersion.id;
+    const res = await apiFetch<{ id: string }>("/api/schedule-versions", {
+      method: "POST",
+      body: JSON.stringify({ term_id: termId, mode: "draft" }),
+    });
+    if (res.data?.id) {
+      setVersions((v) => [...v, { id: res.data!.id, term_id: termId, mode: "draft" }]);
+      return res.data.id;
+    }
+    if (res.status === 409) {
+      const listRes = await apiFetch<{ data: Array<{ id: string; term_id: string; mode: string }> }>(
+        `/api/schedule-versions?term_id=${termId}`
+      );
+      const rows = (listRes.data as { data?: Array<{ id: string; term_id: string; mode: string }> })?.data ?? [];
+      const draft = rows.find((v) => v.term_id === termId && v.mode === "draft");
+      if (draft) {
+        setVersions((prev) => {
+          const have = new Set(prev.map((x) => x.id));
+          return [...prev, ...rows.filter((r) => !have.has(r.id))];
+        });
+        return draft.id;
+      }
+    }
+    setError(res.error ?? "Could not create working draft for this term");
+    return null;
+  };
+
   const createSlot = async (data: {
     course_offering_id: string;
     day_of_week: number;
     start_time: string;
     end_time: string;
   }) => {
-    if (!draftVersion) {
-      setError("No draft schedule exists for this term");
-      return;
-    }
+    const versionId = await ensureDraft();
+    if (!versionId) return;
     setError(null);
     const res = await apiFetch<{ error?: string; details?: { errors?: Array<{ message: string }> } }>("/api/schedule-slots", {
       method: "POST",
       body: JSON.stringify({
         course_offering_id: data.course_offering_id,
-        schedule_version_id: draftVersion.id,
+        schedule_version_id: versionId,
         day_of_week: data.day_of_week,
         start_time: data.start_time,
         end_time: data.end_time,
@@ -186,7 +212,7 @@ export default function ProfessorCalendarPage() {
       {
         id: created.id,
         course_offering_id: data.course_offering_id,
-        schedule_version_id: draftVersion.id,
+        schedule_version_id: versionId,
         day_of_week: data.day_of_week,
         start_time: data.start_time,
         end_time: data.end_time,
@@ -399,23 +425,26 @@ export default function ProfessorCalendarPage() {
             ))}
           </select>
         </div>
-        {draftVersion && (
-          <button
-            onClick={() => {
-              setSlotModalAlert(null);
-              setShowCreate(true);
-            }}
-            className="mt-6 rounded-md bg-soka-blue px-4 py-2 text-sm font-medium text-white hover:bg-soka-blue-hover"
-          >
-            Add slot
-          </button>
-        )}
-        {!draftVersion && termId && (
-          <p className="mt-6 text-sm text-soka-muted">
-            {officialVersion
-              ? "Viewing published schedule. Slots cannot be edited."
-              : "No schedule for this term. Contact your director to add slots."}
-          </p>
+        {termId && (
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
+            <button
+              type="button"
+              onClick={() => {
+                setSlotModalAlert(null);
+                setShowCreate(true);
+              }}
+              className="rounded-md bg-soka-blue px-4 py-2 text-sm font-medium text-white hover:bg-soka-blue-hover"
+            >
+              Add slot
+            </button>
+            {!draftVersion && (
+              <p className="text-sm text-soka-muted">
+                {officialVersion
+                  ? "New slots are added on a working draft (the published schedule stays unchanged until a dean publishes updates)."
+                  : "Your slots are stored on the term’s working draft schedule."}
+              </p>
+            )}
+          </div>
         )}
       </div>
 

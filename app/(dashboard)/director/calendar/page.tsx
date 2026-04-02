@@ -89,13 +89,56 @@ export default function DirectorCalendarPage() {
     ? versions.find((v) => v.term_id === termId && v.mode === "draft")
     : null;
 
+  const ensureDraft = async (): Promise<string | null> => {
+    if (!termId) return null;
+    const existing = versions.find((v) => v.term_id === termId && v.mode === "draft");
+    if (existing) return existing.id;
+    const res = await apiFetch<{ id: string }>("/api/schedule-versions", {
+      method: "POST",
+      body: JSON.stringify({ term_id: termId, mode: "draft" }),
+    });
+    if (res.data?.id) {
+      setVersions((v) => [...v, { id: res.data!.id, term_id: termId, mode: "draft" }]);
+      return res.data.id;
+    }
+    if (res.status === 409) {
+      const listRes = await apiFetch<{ data: Array<{ id: string; term_id: string; mode: string }> }>(
+        `/api/schedule-versions?term_id=${termId}`
+      );
+      const rows =
+        (listRes.data as { data?: Array<{ id: string; term_id: string; mode: string }> })?.data ?? [];
+      const draft = rows.find((v) => v.term_id === termId && v.mode === "draft");
+      if (draft) {
+        setVersions((prev) => {
+          const ids = new Set(prev.map((x) => x.id));
+          return [...prev, ...rows.filter((r) => !ids.has(r.id))];
+        });
+        return draft.id;
+      }
+    }
+    setError(res.error ?? "Could not create working draft for this term");
+    return null;
+  };
+
   useEffect(() => {
     if (!termId || !programId) return;
     const draft = draftVersion ?? versions.find((v) => v.term_id === termId && v.mode === "draft");
     if (!draft) {
       setSlots([]);
-      setOfferings([]);
       setHeatmap([]);
+      setLoading(true);
+      setError(null);
+      apiFetch<{ data: Offering[] }>(
+        `/api/course-offerings?term_id=${termId}&participates_in_scheduling=true`
+      )
+        .then((r) => {
+          setOfferings((r.data as { data?: Offering[] })?.data ?? []);
+          setLoading(false);
+        })
+        .catch(() => {
+          setError("Failed to load offerings");
+          setLoading(false);
+        });
       return;
     }
     setLoading(true);
@@ -130,13 +173,14 @@ export default function DirectorCalendarPage() {
     start_time: string;
     end_time: string;
   }) => {
-    if (!draftVersion) return;
+    const versionId = await ensureDraft();
+    if (!versionId) return;
     setError(null);
     const res = await apiFetch<{ error?: string; details?: { errors?: Array<{ message: string }> }; id?: string }>("/api/schedule-slots", {
       method: "POST",
       body: JSON.stringify({
         course_offering_id: data.course_offering_id,
-        schedule_version_id: draftVersion.id,
+        schedule_version_id: versionId,
         day_of_week: data.day_of_week,
         start_time: data.start_time,
         end_time: data.end_time,
@@ -155,7 +199,7 @@ export default function DirectorCalendarPage() {
     const newSlot: Slot = {
       id: created.id,
       course_offering_id: data.course_offering_id,
-      schedule_version_id: draftVersion.id,
+      schedule_version_id: versionId,
       day_of_week: data.day_of_week,
       start_time: data.start_time,
       end_time: data.end_time,
@@ -284,13 +328,21 @@ export default function DirectorCalendarPage() {
             ))}
             </select>
           </div>
-        {draftVersion && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="rounded-md bg-soka-blue px-4 py-2 text-sm font-medium text-white hover:bg-soka-blue-hover"
-          >
-            Add slot
-          </button>
+        {termId && programId && (
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="rounded-md bg-soka-blue px-4 py-2 text-sm font-medium text-white hover:bg-soka-blue-hover"
+            >
+              Add slot
+            </button>
+            {!draftVersion && (
+              <p className="text-xs text-soka-muted sm:max-w-sm">
+                A working draft is created automatically when you add the first slot, if one does not exist yet.
+              </p>
+            )}
+          </div>
         )}
       </div>
 

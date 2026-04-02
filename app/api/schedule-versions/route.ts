@@ -31,11 +31,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireRole(request, ["dean"]);
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.message }, { status: auth.status });
-  }
-
   const body = await request.json();
   const parsed = scheduleVersionSchema.safeParse(body);
   if (!parsed.success) {
@@ -43,6 +38,14 @@ export async function POST(request: Request) {
       { error: "Validation failed", details: parsed.error.flatten() },
       { status: 400 }
     );
+  }
+
+  const auth =
+    parsed.data.mode === "official"
+      ? await requireRole(request, ["dean"])
+      : await requireRole(request, ["professor", "director", "dean"]);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
 
   const term = await prisma.term.findUnique({
