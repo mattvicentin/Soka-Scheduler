@@ -33,6 +33,9 @@ export async function GET(request: Request) {
       email: account.email,
       role: account.role,
       is_admin: account.isAdmin,
+      professor_tour_completed_at: account.professorTourCompletedAt?.toISOString() ?? null,
+      director_tour_completed_at: account.directorTourCompletedAt?.toISOString() ?? null,
+      dean_tour_completed_at: account.deanTourCompletedAt?.toISOString() ?? null,
       faculty_id: account.facultyId,
       faculty: account.faculty
         ? {

@@ -85,6 +85,10 @@ model Account {
   role         AccountRole
   isActive     Boolean   @default(true) @map("is_active")
   isAdmin      Boolean   @default(false) @map("is_admin")
+  /// Role-specific dashboard tutorial completion (ISO timestamps); each role has its own guided tour.
+  professorTourCompletedAt DateTime? @map("professor_tour_completed_at")
+  directorTourCompletedAt  DateTime? @map("director_tour_completed_at")
+  deanTourCompletedAt      DateTime? @map("dean_tour_completed_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
