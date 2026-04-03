@@ -10,25 +10,38 @@
   max-width: 24rem;
 }
 
-.soka-shepherd-step .shepherd-header {
+/*
+ * Shepherd ships: .shepherd-has-title .shepherd-content .shepherd-header { background: #e6e6e6 }
+ * That rule is *more specific* than .soka-shepherd-step .shepherd-header — override explicitly.
+ */
+.soka-shepherd-step.shepherd-has-title .shepherd-content .shepherd-header,
+.soka-shepherd-step .shepherd-content .shepherd-header {
   background: #003a8f;
   padding: 0.75rem 1rem;
   border-radius: 0.5rem 0.5rem 0 0;
 }
 
-.soka-shepherd-step .shepherd-title {
+.soka-shepherd-step .shepherd-title,
+.soka-shepherd-step.shepherd-has-title .shepherd-content .shepherd-title {
   color: #ffffff;
   font-size: 1rem;
   font-weight: 600;
   font-family: var(--font-inter), system-ui, sans-serif;
 }
 
-.soka-shepherd-step .shepherd-cancel-icon {
+.soka-shepherd-step .shepherd-cancel-icon,
+.soka-shepherd-step.shepherd-has-title .shepherd-content .shepherd-cancel-icon {
   color: rgba(255, 255, 255, 0.85);
 }
 
-.soka-shepherd-step .shepherd-cancel-icon:hover {
+.soka-shepherd-step .shepherd-cancel-icon:hover,
+.soka-shepherd-step.shepherd-has-title .shepherd-content .shepherd-cancel-icon:hover {
   color: #ffffff;
+}
+
+/* Tooltip arrow sits against the header on bottom-placed steps; default matched gray #e6e6e6 */
+.soka-shepherd-step.shepherd-has-title[data-popper-placement^="bottom"] > .shepherd-arrow::before {
+  background-color: #003a8f;
 }
 
 .soka-shepherd-step .shepherd-text {
