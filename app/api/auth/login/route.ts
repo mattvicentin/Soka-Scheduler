@@ -19,6 +19,12 @@ const DEAN_ASSOCIATE_PASSWORD = "password123";
 const HARDCODED_FACULTY_EMAIL = "mattvicentin@gmail.com";
 const HARDCODED_FACULTY_PASSWORD = "12345678";
 
+/** Demo accounts — Martin (dean / director / faculty). Rotate if the repo is shared. */
+const MARTIN_DEAN_EMAIL = "mdean@soka.edu";
+const MARTIN_DIRECTOR_EMAIL = "mdirector@soka.edu";
+const MARTIN_FACULTY_EMAIL = "mfaculty@soka.edu";
+const MARTIN_DEMO_PASSWORD = "password123";
+
 export async function POST(request: Request) {
   try {
     if (!process.env.JWT_SECRET) {
@@ -92,6 +98,139 @@ export async function POST(request: Request) {
               passwordHash,
               role: "dean",
               isAdmin: false,
+            },
+          });
+    }
+
+    // Martin — demo dean (hard-coded)
+    if (!account && email === MARTIN_DEAN_EMAIL && password === MARTIN_DEMO_PASSWORD) {
+      const passwordHash = await hashPassword(MARTIN_DEMO_PASSWORD);
+      const existing = await prisma.account.findUnique({
+        where: { email: MARTIN_DEAN_EMAIL },
+      });
+      account = existing
+        ? await prisma.account.update({
+            where: { id: existing.id },
+            data: {
+              role: "dean",
+              isAdmin: false,
+              passwordHash,
+              isActive: true,
+              facultyId: null,
+            },
+          })
+        : await prisma.account.create({
+            data: {
+              email: MARTIN_DEAN_EMAIL,
+              passwordHash,
+              role: "dean",
+              isAdmin: false,
+            },
+          });
+    }
+
+    // Martin — demo director (hard-coded; needs program association for director UI)
+    if (!account && email === MARTIN_DIRECTOR_EMAIL && password === MARTIN_DEMO_PASSWORD) {
+      const passwordHash = await hashPassword(MARTIN_DEMO_PASSWORD);
+      let faculty = await prisma.faculty.findUnique({
+        where: { email: MARTIN_DIRECTOR_EMAIL },
+      });
+      if (!faculty) {
+        faculty = await prisma.faculty.create({
+          data: {
+            email: MARTIN_DIRECTOR_EMAIL,
+            name: "Martin",
+            expectedAnnualLoad: 5,
+          },
+        });
+      }
+      let acc = await prisma.account.findUnique({
+        where: { email: MARTIN_DIRECTOR_EMAIL },
+      });
+      if (!acc) {
+        acc = await prisma.account.findUnique({
+          where: { facultyId: faculty.id },
+        });
+      }
+      account = acc
+        ? await prisma.account.update({
+            where: { id: acc.id },
+            data: {
+              email: MARTIN_DIRECTOR_EMAIL,
+              facultyId: faculty.id,
+              role: "director",
+              isAdmin: false,
+              passwordHash,
+              isActive: true,
+            },
+          })
+        : await prisma.account.create({
+            data: {
+              email: MARTIN_DIRECTOR_EMAIL,
+              passwordHash,
+              role: "director",
+              isAdmin: false,
+              facultyId: faculty.id,
+            },
+          });
+
+      const program =
+        (await prisma.program.findFirst({
+          where: { name: "International Studies Concentration" },
+        })) ?? (await prisma.program.findFirst({ orderBy: { name: "asc" } }));
+      if (program) {
+        await prisma.accountProgramAssociation.upsert({
+          where: {
+            accountId_programId: { accountId: account.id, programId: program.id },
+          },
+          update: {},
+          create: { accountId: account.id, programId: program.id },
+        });
+      }
+    }
+
+    // Martin — demo faculty / professor (hard-coded)
+    if (!account && email === MARTIN_FACULTY_EMAIL && password === MARTIN_DEMO_PASSWORD) {
+      const passwordHash = await hashPassword(MARTIN_DEMO_PASSWORD);
+      let faculty = await prisma.faculty.findUnique({
+        where: { email: MARTIN_FACULTY_EMAIL },
+      });
+      if (!faculty) {
+        faculty = await prisma.faculty.create({
+          data: {
+            email: MARTIN_FACULTY_EMAIL,
+            name: "Martin",
+            expectedAnnualLoad: 5,
+          },
+        });
+      }
+      let acc = await prisma.account.findUnique({
+        where: { email: MARTIN_FACULTY_EMAIL },
+      });
+      if (!acc) {
+        acc = await prisma.account.findUnique({
+          where: { facultyId: faculty.id },
+        });
+      }
+      account = acc
+        ? await prisma.account.update({
+            where: { id: acc.id },
+            data: {
+              email: MARTIN_FACULTY_EMAIL,
+              facultyId: faculty.id,
+              role: "professor",
+              isAdmin: false,
+              passwordHash,
+              isActive: true,
+            },
+          })
+        : await prisma.account.create({
+            data: {
+              email: MARTIN_FACULTY_EMAIL,
+              passwordHash,
+              role: "professor",
+              isAdmin: false,
+              facultyId: faculty.id,
             },
           });
     }
