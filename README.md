@@ -14,7 +14,7 @@ Internal web application for faculty teaching preferences, teaching load enforce
 
 ## Prerequisites
 
-- **Node.js** 18+ (20 LTS recommended)
+- **Node.js** **20.x** (required; see `package.json` `engines`)
 - **PostgreSQL** 15+
 - **npm**
 
@@ -68,6 +68,12 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+### Bootstrap / demo logins (optional)
+
+For local or shared testing, the app also recognizes **hard-coded accounts** (dean, director, professor) and legacy shortcuts defined in **`app/api/auth/login/route.ts`** (e.g. demo “Martin” roles and existing faculty shortcuts). **Do not rely on these in production**—treat them like dev-only credentials and remove or rotate them if the repo is public.
+
+**Onboarding:** After login, each role gets a **guided tour** (Shepherd.js); completion is stored per role on the account (`*_tour_completed_at` in Prisma). Use the **Tutorial** control in the dashboard header to replay.
 
 ---
 
@@ -130,6 +136,8 @@ After setup, verify these flows work locally:
 6. **Director dashboard access** — Create a director account (dean creates faculty + invitation, or assign director role to an account). Log in and access director dashboard, calendar, approvals.
 
 7. **Dean dashboard access** — As admin/dean, access faculty, courses, calendar, proposals, accounts, invitations.
+
+8. **Onboarding tour** — First visit prompts for the role-specific tour; **Tutorial** in the header replays it. Requires DB migration that adds tour completion columns (see `prisma/migrations/`).
 
 ---
 
@@ -195,11 +203,13 @@ soka-scheduling/
 │   ├── (auth)/             # Login, accept-invitation, verify
 │   ├── (dashboard)/        # Main app (professor, director, dean)
 │   └── api/                # API routes
+├── components/             # Shared UI (e.g. branding)
 ├── lib/
 │   ├── auth/               # Password, JWT, session, middleware
 │   ├── constants/          # Roles, statuses, config keys
 │   ├── db/                 # Prisma client
 │   ├── config.ts           # system_config helpers
+│   ├── tour/               # In-app tours (Shepherd.js) per dashboard role
 │   ├── validation/         # Schedule validation rules
 │   └── services/           # Load, fairness, heatmap, export
 ├── prisma/
@@ -217,7 +227,7 @@ soka-scheduling/
 
 - **Identity:** `faculty` (employment) + `accounts` (login). Faculty exists before account.
 - **Courses:** `course_templates` + `course_offerings`; `course_template_programs` (cross-listing); `course_offering_instructors` (team teaching).
-- **Scheduling:** `schedule_versions` (draft/official), `schedule_slots`, `schedule_proposals`.
-- **Auth:** JWT Bearer tokens; admin via env; faculty via invitation + verification code.
+- **Scheduling:** `schedule_versions` (draft/official), `schedule_slots`, `schedule_proposals`. Professors and directors can create **draft** versions to edit slots (see API and calendar UIs).
+- **Auth:** JWT (jose) stored in an **httpOnly cookie** for browser sessions; admin via `ADMIN_*` env; faculty often via **invitation + verification code**; additional **bootstrap logins** are implemented in code for development (see `app/api/auth/login/route.ts`).
 
 See `docs/architecture.md` for details.
