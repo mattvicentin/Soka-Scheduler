@@ -285,7 +285,10 @@ export default function DeanCoursesPage() {
                 <span className="ml-2 text-soka-muted">{o.course_template.title}</span>
                 <span className="ml-2 text-sm text-soka-muted">{o.term.name}</span>
                 <span className="ml-2 text-sm text-soka-muted">
-                  — {o.instructors.map((i) => `${i.faculty_name} (${i.load_share})`).join(", ")}
+                  —{" "}
+                  {o.instructors
+                    .map((i) => `${i.faculty_name} (${Math.round(Number(i.load_share) * 100)}% load)`)
+                    .join(", ")}
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -955,6 +958,11 @@ function TemplateProgramsSection({
   );
 }
 
+function loadShareToPercent(share: number): number {
+  const p = Math.round(Number(share) * 100);
+  return Math.min(100, Math.max(1, p));
+}
+
 function LoadShareRow({
   instructor,
   onUpdate,
@@ -964,8 +972,8 @@ function LoadShareRow({
   onUpdate: (id: string, loadShare: number) => void;
   onRemove: () => void;
 }) {
-  const [localShare, setLocalShare] = useState(instructor.load_share);
-  useEffect(() => setLocalShare(instructor.load_share), [instructor.load_share]);
+  const [localPercent, setLocalPercent] = useState(() => loadShareToPercent(instructor.load_share));
+  useEffect(() => setLocalPercent(loadShareToPercent(instructor.load_share)), [instructor.load_share]);
 
   return (
     <div className="flex items-center justify-between rounded border border-soka-border bg-soka-surface px-3 py-2">
@@ -973,18 +981,29 @@ function LoadShareRow({
       <div className="flex items-center gap-2">
         <input
           type="number"
-          min={0.01}
-          max={1}
-          step={0.1}
-          value={localShare}
-          onChange={(e) => setLocalShare(parseFloat(e.target.value) || 0.5)}
-          onBlur={(e) => {
-            const v = parseFloat(e.target.value);
-            if (!Number.isNaN(v) && v >= 0.01 && v <= 1) onUpdate(instructor.id, v);
+          inputMode="numeric"
+          min={1}
+          max={100}
+          step={1}
+          value={localPercent}
+          onChange={(e) => {
+            const digits = e.target.value.replace(/[^\d]/g, "");
+            if (digits === "") {
+              setLocalPercent(1);
+              return;
+            }
+            const n = parseInt(digits, 10);
+            if (Number.isNaN(n)) return;
+            setLocalPercent(Math.min(100, Math.max(1, n)));
+          }}
+          onBlur={() => {
+            const v = Math.min(100, Math.max(1, localPercent));
+            setLocalPercent(v);
+            onUpdate(instructor.id, v / 100);
           }}
           className="w-16 rounded border border-soka-border px-2 py-1 text-sm"
         />
-        <span className="text-xs text-soka-muted">load</span>
+        <span className="text-xs text-soka-muted">% load</span>
         <button onClick={onRemove} className="text-soka-error hover:underline">
           Remove
         </button>
@@ -1005,17 +1024,18 @@ function AddInstructorForm({
   onCancel: () => void;
 }) {
   const [facultyId, setFacultyId] = useState("");
-  const [loadShare, setLoadShare] = useState(0.5);
+  /** Integer percent1–100; stored as load_share = percent/100 */
+  const [loadPercent, setLoadPercent] = useState(100);
   const available = facultyList.filter((f) => !existingIds.includes(f.id));
 
   return (
     <div className="mt-4 rounded border border-soka-border bg-soka-surface p-4">
       <h3 className="text-sm font-medium text-soka-body">Add instructor</h3>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         <select
           value={facultyId}
           onChange={(e) => setFacultyId(e.target.value)}
-          className="flex-1 rounded-md border border-soka-border px-3 py-2 text-sm"
+          className="flex-1 rounded-md border border-soka-border px-3 py-2 text-sm min-w-[12rem]"
         >
           <option value="">Select faculty</option>
           {available.map((f) => (
@@ -1024,17 +1044,30 @@ function AddInstructorForm({
             </option>
           ))}
         </select>
-        <input
-          type="number"
-          min={0.01}
-          max={1}
-          step={0.1}
-          value={loadShare}
-          onChange={(e) => setLoadShare(parseFloat(e.target.value) || 0.5)}
-          className="w-20 rounded border border-soka-border px-2 py-2 text-sm"
-        />
+        <label className="flex items-center gap-1 text-sm text-soka-muted">
+          <span className="whitespace-nowrap">Load %</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={100}
+            step={1}
+            value={loadPercent}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/[^\d]/g, "");
+              if (digits === "") {
+                setLoadPercent(1);
+                return;
+              }
+              const n = parseInt(digits, 10);
+              if (Number.isNaN(n)) return;
+              setLoadPercent(Math.min(100, Math.max(1, n)));
+            }}
+            className="w-16 rounded border border-soka-border px-2 py-2 text-sm"
+          />
+        </label>
         <button
-          onClick={() => facultyId && onAdd(facultyId, loadShare)}
+          onClick={() => facultyId && onAdd(facultyId, loadPercent / 100)}
           className="rounded-md bg-soka-blue px-3 py-2 text-sm text-white hover:bg-soka-blue-hover"
         >
           Add
