@@ -1,0 +1,51 @@
+# Deploy to Railway from GitHub Actions (no repo webhook required).
+#
+# Use this when Railway's "Connect Repo" UI cannot see your repository. The
+# workflow uploads the checked-out ref to Railway via the CLI + project token.
+#
+# Setup (GitHub → repo → Settings → Secrets and variables → Actions):
+#   1. RAILWAY_TOKEN — Railway dashboard → your project → Project Settings → Tokens
+#   2. RAILWAY_PROJECT_ID — from project URL: railway.app/project/<THIS_UUID>/...
+#   3. RAILWAY_SERVICE_ID — from service settings URL: .../service/<THIS_UUID>/...
+#   Optional: RAILWAY_ENVIRONMENT — defaults to "production" (must match your Railway environment name)
+#
+# Railway dashboard fixes (if builds are wrong):
+#   - Source → Root Directory: leave empty or "." only (not a git clone command).
+#   - You can disconnect the broken GitHub source; this workflow replaces autodeploy.
+#
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: railway-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
+        run: |
+          ENV_NAME="${RAILWAY_ENVIRONMENT:-production}"
+          railway up --ci \
+            --project "${{ secrets.RAILWAY_PROJECT_ID }}" \
+            --environment "$ENV_NAME" \
+            --service "${{ secrets.RAILWAY_SERVICE_ID }}"
