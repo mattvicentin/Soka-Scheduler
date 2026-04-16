@@ -27,12 +27,12 @@ export async function getAccessibleProgramIds(payload: AuthScopePayload): Promis
       where: { directorAccountId: payload.accountId },
       select: { id: true },
     });
-    return [
-      ...new Set([
+    return Array.from(
+      new Set([
         ...assocs.map((a) => a.programId),
         ...directedPrograms.map((p) => p.id),
-      ]),
-    ];
+      ])
+    );
   }
   if (payload.role === "professor" && payload.facultyId) {
     const affils = await prisma.facultyProgramAffiliation.findMany({
