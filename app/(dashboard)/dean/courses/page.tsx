@@ -330,6 +330,9 @@ export default function DeanCoursesPage() {
   );
 }
 
+/** Dean course template credits (create / edit template modal). */
+const TEMPLATE_CREDIT_OPTIONS = [1, 3, 4] as const;
+
 function TemplateModal({
   template,
   programs,
@@ -345,7 +348,14 @@ function TemplateModal({
 }) {
   const [title, setTitle] = useState(template?.title ?? "");
   const [courseCode, setCourseCode] = useState(template?.course_code ?? "");
-  const [credits, setCredits] = useState<string>(template?.credits?.toString() ?? "");
+  const [credits, setCredits] = useState<string>(
+    template?.credits != null ? String(template.credits) : ""
+  );
+  const legacyCredits =
+    template?.credits != null &&
+    !TEMPLATE_CREDIT_OPTIONS.includes(template.credits as (typeof TEMPLATE_CREDIT_OPTIONS)[number])
+      ? template.credits
+      : null;
   const [typicallyOffered, setTypicallyOffered] = useState<string>(
     template?.typically_offered ?? ""
   );
@@ -388,14 +398,23 @@ function TemplateModal({
           </div>
           <div>
             <label className="block text-sm font-medium text-soka-body">Credits</label>
-            <input
-              type="number"
-              min={1}
-              max={10}
+            <select
               value={credits}
               onChange={(e) => setCredits(e.target.value)}
               className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
-            />
+            >
+              <option value="">— Not set</option>
+              {TEMPLATE_CREDIT_OPTIONS.map((n) => (
+                <option key={n} value={String(n)}>
+                  {n} {n === 1 ? "credit" : "credits"}
+                </option>
+              ))}
+              {legacyCredits != null && (
+                <option value={String(legacyCredits)}>
+                  {legacyCredits} credits (current — choose 1, 3, or 4 to update)
+                </option>
+              )}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-soka-body">Typically offered</label>
@@ -455,9 +474,21 @@ function TemplateModal({
             </button>
             <button
               onClick={() => {
-                const cred = credits ? parseInt(credits, 10) : null;
+                const cred = credits === "" ? null : parseInt(credits, 10);
                 if (!title || !courseCode) {
                   alert("Title and course code required");
+                  return;
+                }
+                if (credits !== "" && Number.isNaN(cred!)) {
+                  alert("Invalid credits selection");
+                  return;
+                }
+                if (
+                  cred !== null &&
+                  !(TEMPLATE_CREDIT_OPTIONS as readonly number[]).includes(cred) &&
+                  cred !== template?.credits
+                ) {
+                  alert("Credits must be 1, 3, or 4, or leave unset.");
                   return;
                 }
                 const typically = typicallyOffered || null;
