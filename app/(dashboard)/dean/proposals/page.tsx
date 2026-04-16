@@ -77,7 +77,9 @@ export default function DeanProposalsPage() {
     <div>
       <h1 className="text-2xl font-bold text-soka-body">Proposals</h1>
       <p className="mt-1 text-soka-muted">
-        Review, finalize, and publish. Director self-approval cases require dean approval.
+        Finalize proposals after program directors approve them. New faculty submissions stay in{" "}
+        <strong>Pending Approvals</strong> until a director picks them up— they do not appear here as
+        &quot;Submitted&quot;.
       </p>
 
       <div className="mt-6">
@@ -87,7 +89,6 @@ export default function DeanProposalsPage() {
           onChange={(e) => setFilter(e.target.value)}
           className="mt-1 block w-48 rounded-md border border-soka-border px-3 py-2 text-sm"
         >
-          <option value="submitted">Submitted</option>
           <option value="under_review">Under review</option>
           <option value="revised">Revised</option>
           <option value="approved">Approved (need finalize)</option>

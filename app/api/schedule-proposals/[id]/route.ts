@@ -187,6 +187,15 @@ export async function PATCH(
 
   if (auth.payload.role === "director" || auth.payload.role === "dean") {
     if (slotEdits && slotEdits.length > 0) {
+      if (auth.payload.role === "dean" && proposal.status === "submitted") {
+        return NextResponse.json(
+          {
+            error:
+              "This proposal is awaiting program director review. A director must pick it up before the dean can edit slots.",
+          },
+          { status: 403 }
+        );
+      }
       const draftVersion = await prisma.scheduleVersion.findUnique({
         where: { termId_mode: { termId: proposal.termId, mode: "draft" } },
       });
@@ -311,6 +320,14 @@ export async function PATCH(
       draft: ["submitted"],
     };
     if (status && validTransitions[proposal.status]?.includes(status)) {
+      if (proposal.status === "submitted" && status === "under_review" && auth.payload.role !== "director") {
+        return NextResponse.json(
+          {
+            error: "Only a program director can accept a newly submitted proposal for review.",
+          },
+          { status: 403 }
+        );
+      }
       if (proposal.status === "approved" && status === "under_review") {
         if (auth.payload.role !== "dean") {
           return NextResponse.json(

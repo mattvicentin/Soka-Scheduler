@@ -190,7 +190,7 @@ export default function DeanProposalDetailPage() {
 
   const canEdit =
     proposal &&
-    ["under_review", "revised", "submitted", "approved"].includes(proposal.status);
+    ["under_review", "revised", "approved"].includes(proposal.status);
 
   const editSlot = async (
     slotId: string,

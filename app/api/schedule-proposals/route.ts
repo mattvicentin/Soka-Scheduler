@@ -18,6 +18,11 @@ export async function GET(request: Request) {
   const termId = searchParams.get("term_id");
   const status = searchParams.get("status");
 
+  // Professor submissions in "submitted" are the director's queue; dean sees them only after director approval.
+  if (auth.payload.role === "dean" && status === "submitted") {
+    return NextResponse.json({ data: [] });
+  }
+
   let where: Record<string, unknown> = {};
   if (termId) where.termId = termId;
   if (status) where.status = status;
