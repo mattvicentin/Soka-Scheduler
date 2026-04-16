@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api/client";
@@ -21,6 +21,7 @@ interface Slot {
     title: string;
     section_code: string;
     instructors: Array<{ name: string; load_share?: number }>;
+    programs?: Array<{ program_id: string; program_name: string }>;
   };
 }
 
@@ -35,11 +36,63 @@ interface OfferingSlot {
 
 interface AssignedOffering {
   id: string;
-  course_template: { course_code: string; title: string };
+  course_template: {
+    course_code: string;
+    title: string;
+    programs: Array<{ program_id: string; program_name: string }>;
+  };
   section_code: string;
   my_load_share?: number | null;
   co_instructors: Array<{ name: string }>;
   slots?: OfferingSlot[];
+}
+
+/** Standard class blocks (professor calendar). Programs matching EXEMPT use free-form times instead. */
+const PRESET_TIME_BLOCKS: Array<{ label: string; start: string; end: string }> = [
+  { label: "07:50 - 09:50", start: "07:50", end: "09:50" },
+  { label: "08:15 - 09:45", start: "08:15", end: "09:45" },
+  { label: "09:00 - 12:00", start: "09:00", end: "12:00" },
+  { label: "10:00 - 11:00", start: "10:00", end: "11:00" },
+  { label: "10:00 - 11:30", start: "10:00", end: "11:30" },
+  { label: "10:00 - 12:00", start: "10:00", end: "12:00" },
+  { label: "10:30 - 12:00", start: "10:30", end: "12:00" },
+  { label: "12:50 - 14:50", start: "12:50", end: "14:50" },
+  { label: "13:00 - 14:30", start: "13:00", end: "14:30" },
+  { label: "15:00 - 16:00", start: "15:00", end: "16:00" },
+  { label: "15:00 - 16:30", start: "15:00", end: "16:30" },
+  { label: "15:00 - 16:50", start: "15:00", end: "16:50" },
+  { label: "15:00 - 17:00", start: "15:00", end: "17:00" },
+];
+
+const EXEMPT_PROGRAM_FRAGMENTS = ["creative arts", "distinguished topics", "career building"] as const;
+
+function normalizeTimeHm(t: string): string {
+  const m = t.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return t.trim();
+  const h = Math.min(23, Math.max(0, parseInt(m[1], 10)));
+  const min = Math.min(59, Math.max(0, parseInt(m[2], 10)));
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+function isExemptFromTimePresets(programs: Array<{ program_name: string }> | undefined): boolean {
+  if (!programs?.length) return false;
+  return programs.some((p) => {
+    const n = p.program_name.toLowerCase();
+    return EXEMPT_PROGRAM_FRAGMENTS.some((frag) => n.includes(frag));
+  });
+}
+
+function findMatchingPresetIndex(start: string, end: string): number | null {
+  const s = normalizeTimeHm(start);
+  const e = normalizeTimeHm(end);
+  const idx = PRESET_TIME_BLOCKS.findIndex(
+    (b) => normalizeTimeHm(b.start) === s && normalizeTimeHm(b.end) === e
+  );
+  return idx >= 0 ? idx : null;
+}
+
+function isValidHm(t: string): boolean {
+  return /^\d{2}:\d{2}$/.test(normalizeTimeHm(t));
 }
 
 const BUILDING_OPTIONS = [
@@ -379,6 +432,7 @@ export default function ProfessorCalendarPage() {
               title: o.course_template.title,
               section_code: o.section_code,
               instructors: [{ name: "You" }, ...o.co_instructors],
+              programs: o.course_template.programs,
             },
           }))
         );
@@ -401,6 +455,19 @@ export default function ProfessorCalendarPage() {
     section_code: o.section_code,
     instructors: o.co_instructors.map((i) => ({ faculty_name: i.name })),
   }));
+
+  function slotWithPrograms(s: Slot): Slot {
+    const o = offerings.find((x) => x.id === s.course_offering_id);
+    const programs = o?.course_template.programs;
+    if (!programs?.length && !s.course_offering.programs?.length) return s;
+    return {
+      ...s,
+      course_offering: {
+        ...s.course_offering,
+        programs: programs ?? s.course_offering.programs,
+      },
+    };
+  }
 
   return (
     <div>
@@ -470,7 +537,7 @@ export default function ProfessorCalendarPage() {
 
       {editingSlot && (
         <EditSlotModal
-          slot={editingSlot}
+          slot={slotWithPrograms(editingSlot)}
           onClose={() => {
             setEditingSlot(null);
             setSlotModalAlert(null);
@@ -705,6 +772,128 @@ export default function ProfessorCalendarPage() {
   );
 }
 
+function SlotTimeControls({
+  exempt,
+  start,
+  end,
+  onStartChange,
+  onEndChange,
+  presetIndex,
+  onPresetIndexChange,
+  useOtherTime,
+  onUseOtherTime,
+}: {
+  exempt: boolean;
+  start: string;
+  end: string;
+  onStartChange: (v: string) => void;
+  onEndChange: (v: string) => void;
+  presetIndex: number;
+  onPresetIndexChange: (i: number) => void;
+  useOtherTime: boolean;
+  onUseOtherTime: (v: boolean) => void;
+}) {
+  if (exempt) {
+    return (
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-soka-body">Start</label>
+          <input
+            type="text"
+            value={start}
+            onChange={(e) => onStartChange(e.target.value)}
+            placeholder="10:00"
+            className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-soka-body">End</label>
+          <input
+            type="text"
+            value={end}
+            onChange={(e) => onEndChange(e.target.value)}
+            placeholder="11:30"
+            className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {!useOtherTime ? (
+        <>
+          <div>
+            <label className="block text-sm font-medium text-soka-body">Time</label>
+            <select
+              value={presetIndex}
+              onChange={(e) => {
+                const i = parseInt(e.target.value, 10);
+                onPresetIndexChange(i);
+                const b = PRESET_TIME_BLOCKS[i];
+                onStartChange(b.start);
+                onEndChange(b.end);
+              }}
+              className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
+            >
+              {PRESET_TIME_BLOCKS.map((b, i) => (
+                <option key={b.label} value={i}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() => onUseOtherTime(true)}
+            className="text-sm font-medium text-soka-light-blue hover:underline"
+          >
+            Other time
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-soka-body">Start</label>
+              <input
+                type="text"
+                value={start}
+                onChange={(e) => onStartChange(e.target.value)}
+                placeholder="10:00"
+                className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-soka-body">End</label>
+              <input
+                type="text"
+                value={end}
+                onChange={(e) => onEndChange(e.target.value)}
+                placeholder="11:30"
+                className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              onUseOtherTime(false);
+              const b = PRESET_TIME_BLOCKS[presetIndex];
+              onStartChange(b.start);
+              onEndChange(b.end);
+            }}
+            className="text-sm font-medium text-soka-light-blue hover:underline"
+          >
+            Use standard blocks
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function SlotBlockingAlertModal({
   title,
   message,
@@ -747,7 +936,11 @@ function CreateSlotModal({
 }: {
   offerings: Array<{
     id: string;
-    course_template: { course_code: string; title: string };
+    course_template: {
+      course_code: string;
+      title: string;
+      programs: Array<{ program_id: string; program_name: string }>;
+    };
     section_code: string;
     instructors: Array<{ faculty_name: string }>;
   }>;
@@ -761,8 +954,30 @@ function CreateSlotModal({
 }) {
   const [offeringId, setOfferingId] = useState("");
   const [day, setDay] = useState(1);
-  const [start, setStart] = useState("10:00");
-  const [end, setEnd] = useState("11:30");
+  const [start, setStart] = useState(PRESET_TIME_BLOCKS[0].start);
+  const [end, setEnd] = useState(PRESET_TIME_BLOCKS[0].end);
+  const [presetIndex, setPresetIndex] = useState(0);
+  const [useOtherTime, setUseOtherTime] = useState(false);
+
+  const selected = useMemo(
+    () => offerings.find((o) => o.id === offeringId),
+    [offerings, offeringId]
+  );
+  const exempt = isExemptFromTimePresets(selected?.course_template.programs);
+
+  useEffect(() => {
+    if (!offeringId || !selected) return;
+    if (isExemptFromTimePresets(selected.course_template.programs)) {
+      setUseOtherTime(false);
+      setStart("10:00");
+      setEnd("11:30");
+    } else {
+      setUseOtherTime(false);
+      setPresetIndex(0);
+      setStart(PRESET_TIME_BLOCKS[0].start);
+      setEnd(PRESET_TIME_BLOCKS[0].end);
+    }
+  }, [offeringId, selected]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -798,28 +1013,17 @@ function CreateSlotModal({
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-soka-body">Start</label>
-              <input
-                type="text"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                placeholder="10:00"
-                className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-soka-body">End</label>
-              <input
-                type="text"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-                placeholder="11:30"
-                className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
+          <SlotTimeControls
+            exempt={exempt}
+            start={start}
+            end={end}
+            onStartChange={setStart}
+            onEndChange={setEnd}
+            presetIndex={presetIndex}
+            onPresetIndexChange={setPresetIndex}
+            useOtherTime={useOtherTime}
+            onUseOtherTime={setUseOtherTime}
+          />
         </div>
         <div className="mt-6 flex justify-end gap-2">
           <button
@@ -830,13 +1034,9 @@ function CreateSlotModal({
           </button>
           <button
             onClick={() => {
-              const startNorm = /^\d{1,2}:\d{2}$/.test(start)
-                ? (start.length === 4 ? `0${start}` : start)
-                : "";
-              const endNorm = /^\d{1,2}:\d{2}$/.test(end)
-                ? (end.length === 4 ? `0${end}` : end)
-                : "";
-              if (offeringId && startNorm && endNorm) {
+              const startNorm = normalizeTimeHm(start);
+              const endNorm = normalizeTimeHm(end);
+              if (offeringId && isValidHm(start) && isValidHm(end)) {
                 onCreate({
                   course_offering_id: offeringId,
                   day_of_week: day,
@@ -879,6 +1079,40 @@ function EditSlotModal({
   const [end, setEnd] = useState(slot.end_time);
   const [building, setBuilding] = useState(slot.building_preference ?? "");
   const [room, setRoom] = useState(slot.room_preference ?? "");
+  const [presetIndex, setPresetIndex] = useState(0);
+  const [useOtherTime, setUseOtherTime] = useState(false);
+
+  const exempt = isExemptFromTimePresets(slot.course_offering.programs);
+
+  useEffect(() => {
+    setDay(slot.day_of_week);
+    setStart(slot.start_time);
+    setEnd(slot.end_time);
+    setBuilding(slot.building_preference ?? "");
+    setRoom(slot.room_preference ?? "");
+    const ex = isExemptFromTimePresets(slot.course_offering.programs);
+    if (ex) {
+      setUseOtherTime(false);
+      setPresetIndex(0);
+    } else {
+      const idx = findMatchingPresetIndex(slot.start_time, slot.end_time);
+      if (idx !== null) {
+        setPresetIndex(idx);
+        setUseOtherTime(false);
+      } else {
+        setPresetIndex(0);
+        setUseOtherTime(true);
+      }
+    }
+  }, [
+    slot.id,
+    slot.day_of_week,
+    slot.start_time,
+    slot.end_time,
+    slot.building_preference,
+    slot.room_preference,
+    slot.course_offering.programs,
+  ]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -901,26 +1135,17 @@ function EditSlotModal({
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-soka-body">Start</label>
-              <input
-                type="text"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-soka-body">End</label>
-              <input
-                type="text"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
+          <SlotTimeControls
+            exempt={exempt}
+            start={start}
+            end={end}
+            onStartChange={setStart}
+            onEndChange={setEnd}
+            presetIndex={presetIndex}
+            onPresetIndexChange={setPresetIndex}
+            useOtherTime={useOtherTime}
+            onUseOtherTime={setUseOtherTime}
+          />
           <div>
             <label className="block text-sm font-medium text-soka-body">Building</label>
             <select
@@ -961,12 +1186,14 @@ function EditSlotModal({
             </button>
             <button
               onClick={() => {
-                const startNorm = start.length === 4 ? `0${start}` : start;
-                const endNorm = end.length === 4 ? `0${end}` : end;
+                if (!isValidHm(start) || !isValidHm(end)) {
+                  alert("Use time format HH:MM (e.g. 09:00)");
+                  return;
+                }
                 onSave({
                   day_of_week: day,
-                  start_time: startNorm,
-                  end_time: endNorm,
+                  start_time: normalizeTimeHm(start),
+                  end_time: normalizeTimeHm(end),
                   building_preference: building || null,
                   room_preference: room || null,
                 });
