@@ -77,51 +77,6 @@ export default function ProfessorDashboardPage() {
         Manage your schedule preferences and submit proposals for review.
       </p>
 
-      <div className="mt-8 grid gap-6 sm:grid-cols-2">
-        <section className="rounded-lg border border-soka-border bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-soka-body">Calendar & Offerings</h2>
-          <p className="mt-2 text-sm text-soka-muted">
-            Add time slots, edit building/room preferences, and submit your proposal for review.
-          </p>
-          <Link
-            href="/professor/calendar"
-            className="mt-4 inline-block rounded-md bg-soka-blue px-4 py-2 text-sm font-medium text-white hover:bg-soka-blue-hover"
-          >
-            Open calendar
-          </Link>
-        </section>
-
-        <section className="rounded-lg border border-soka-border bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-soka-body">My Proposal</h2>
-          <p className="mt-2 text-sm text-soka-muted">
-            {draftProposal
-              ? `Submit your proposal for ${draftProposal.term.name} when ready.`
-              : submittedProposal
-                ? `Proposal for ${submittedProposal.term.name} is ${submittedProposal.status.replace("_", " ")}.`
-                : "Create a proposal for a term to submit your schedule preferences."}
-          </p>
-          <Link
-            href="/professor/proposal"
-            className="mt-4 inline-block rounded-md bg-soka-blue px-4 py-2 text-sm font-medium text-white hover:bg-soka-blue-hover"
-          >
-            {draftProposal ? "Edit & submit" : "Create proposal"}
-          </Link>
-        </section>
-
-        <section className="rounded-lg border border-soka-border bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-soka-body">Fairness</h2>
-          <p className="mt-2 text-sm text-soka-muted">
-            View your busy-slot percentage in the 10:00–15:00 window.
-          </p>
-          <Link
-            href="/professor/fairness"
-            className="mt-4 inline-block rounded-md bg-soka-blue px-4 py-2 text-sm font-medium text-white hover:bg-soka-blue-hover"
-          >
-            View fairness
-          </Link>
-        </section>
-      </div>
-
       <section className="mt-8 rounded-lg border border-soka-border bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-soka-body">Assignments</h2>
         <p className="mt-1 text-sm text-soka-muted">
@@ -196,6 +151,51 @@ export default function ProfessorDashboardPage() {
           </ul>
         )}
       </section>
+
+      <div className="mt-8 grid gap-6 sm:grid-cols-2">
+        <section className="rounded-lg border border-soka-border bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-soka-body">Calendar & Offerings</h2>
+          <p className="mt-2 text-sm text-soka-muted">
+            Add time slots, edit building/room preferences, and submit your proposal for review.
+          </p>
+          <Link
+            href="/professor/calendar"
+            className="mt-4 inline-block rounded-md bg-soka-blue px-4 py-2 text-sm font-medium text-white hover:bg-soka-blue-hover"
+          >
+            Open calendar
+          </Link>
+        </section>
+
+        <section className="rounded-lg border border-soka-border bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-soka-body">My Proposal</h2>
+          <p className="mt-2 text-sm text-soka-muted">
+            {draftProposal
+              ? `Submit your proposal for ${draftProposal.term.name} when ready.`
+              : submittedProposal
+                ? `Proposal for ${submittedProposal.term.name} is ${submittedProposal.status.replace("_", " ")}.`
+                : "Create a proposal for a term to submit your schedule preferences."}
+          </p>
+          <Link
+            href="/professor/proposal"
+            className="mt-4 inline-block rounded-md bg-soka-blue px-4 py-2 text-sm font-medium text-white hover:bg-soka-blue-hover"
+          >
+            {draftProposal ? "Edit & submit" : "Create proposal"}
+          </Link>
+        </section>
+
+        <section className="rounded-lg border border-soka-border bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-soka-body">Fairness</h2>
+          <p className="mt-2 text-sm text-soka-muted">
+            View your busy-slot percentage in the 10:00–15:00 window.
+          </p>
+          <Link
+            href="/professor/fairness"
+            className="mt-4 inline-block rounded-md bg-soka-blue px-4 py-2 text-sm font-medium text-white hover:bg-soka-blue-hover"
+          >
+            View fairness
+          </Link>
+        </section>
+      </div>
 
       {terms.length > 0 && (
         <div className="mt-8">
