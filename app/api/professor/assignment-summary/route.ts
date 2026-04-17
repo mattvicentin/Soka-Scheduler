@@ -5,7 +5,8 @@ import type { ProposalStatus } from "@prisma/client";
 
 /**
  * GET /api/professor/assignment-summary
- * Professor only. Assigned courses (dean assignments) grouped by term, plus proposal progress per term.
+ * Professor only. Assigned courses grouped by term, with per-course slot counts and progress.
+ * Step "preferences in submitted proposal" is per course (requires slots); director/dean steps follow the single term proposal.
  */
 export async function GET(request: Request) {
   const auth = await requireRole(request, ["professor"]);
@@ -46,36 +47,51 @@ export async function GET(request: Request) {
         });
   const proposalByTerm = new Map(proposals.map((p) => [p.termId, p]));
 
-  type Progress = {
-    submitted: boolean;
-    director_approved: boolean;
-    dean_finalized: boolean;
-    status: ProposalStatus | null;
-    proposal_id: string | null;
-  };
+  const versions = await prisma.scheduleVersion.findMany({
+    where: { termId: { in: termIds } },
+    select: { id: true, termId: true, mode: true },
+  });
+  const versionIdByTerm = new Map<string, string>();
+  for (const termId of termIds) {
+    const draft = versions.find((v) => v.termId === termId && v.mode === "draft");
+    const official = versions.find((v) => v.termId === termId && v.mode === "official");
+    const id = draft?.id ?? official?.id;
+    if (id) versionIdByTerm.set(termId, id);
+  }
 
-  function progressForStatus(status: ProposalStatus | null): Progress {
-    if (!status) {
-      return {
-        submitted: false,
-        director_approved: false,
-        dean_finalized: false,
-        status: null,
-        proposal_id: null,
-      };
+  const slotCountByOffering = new Map<string, number>();
+  for (const termId of termIds) {
+    const versionId = versionIdByTerm.get(termId);
+    if (!versionId) continue;
+    const idsInTerm = offerings.filter((o) => o.termId === termId).map((o) => o.id);
+    if (idsInTerm.length === 0) continue;
+    const grouped = await prisma.scheduleSlot.groupBy({
+      by: ["courseOfferingId"],
+      where: {
+        scheduleVersionId: versionId,
+        courseOfferingId: { in: idsInTerm },
+      },
+      _count: { _all: true },
+    });
+    for (const g of grouped) {
+      slotCountByOffering.set(g.courseOfferingId, g._count._all);
     }
-    const submitted =
-      status !== "draft" &&
-      ["submitted", "under_review", "revised", "approved", "finalized", "published"].includes(status);
-    const directorApproved = ["approved", "finalized", "published"].includes(status);
-    const deanFinalized = ["finalized", "published"].includes(status);
-    return {
-      submitted,
-      director_approved: directorApproved,
-      dean_finalized: deanFinalized,
-      status,
-      proposal_id: null,
-    };
+  }
+
+  function globalDirectorApproved(status: ProposalStatus | null): boolean {
+    if (!status) return false;
+    return ["approved", "finalized", "published"].includes(status);
+  }
+
+  function globalDeanFinalized(status: ProposalStatus | null): boolean {
+    if (!status) return false;
+    return ["finalized", "published"].includes(status);
+  }
+
+  /** Proposal has been sent for review (or beyond); draft stays false for step 1 until submitted. */
+  function proposalPastDraft(status: ProposalStatus | null): boolean {
+    if (!status) return false;
+    return status !== "draft";
   }
 
   const byTerm = new Map<
@@ -85,8 +101,19 @@ export async function GET(request: Request) {
       term_name: string;
       academic_year: number;
       semester: string;
-      courses: Array<{ id: string; course_code: string; title: string; section_code: string }>;
-      progress: Progress;
+      proposal: { id: string | null; status: ProposalStatus | null };
+      courses: Array<{
+        id: string;
+        course_code: string;
+        title: string;
+        section_code: string;
+        slot_count: number;
+        progress: {
+          preferences_in_submitted_proposal: boolean;
+          director_approved: boolean;
+          dean_finalized: boolean;
+        };
+      }>;
     }
   >();
 
@@ -94,22 +121,31 @@ export async function GET(request: Request) {
     let row = byTerm.get(o.termId);
     if (!row) {
       const prop = proposalByTerm.get(o.termId);
-      const base = progressForStatus(prop?.status ?? null);
       row = {
         term_id: o.termId,
         term_name: o.term.name,
         academic_year: o.term.academicYear,
         semester: o.term.semester,
+        proposal: { id: prop?.id ?? null, status: prop?.status ?? null },
         courses: [],
-        progress: { ...base, proposal_id: prop?.id ?? null },
       };
       byTerm.set(o.termId, row);
     }
+    const propStatus = row.proposal.status;
+    const slotCount = slotCountByOffering.get(o.id) ?? 0;
+    const preferencesInSubmitted = proposalPastDraft(propStatus) && slotCount > 0;
+    const hasPrefs = slotCount > 0;
     row.courses.push({
       id: o.id,
       course_code: o.courseTemplate.courseCode,
       title: o.courseTemplate.title,
       section_code: o.sectionCode,
+      slot_count: slotCount,
+      progress: {
+        preferences_in_submitted_proposal: preferencesInSubmitted,
+        director_approved: hasPrefs && globalDirectorApproved(propStatus),
+        dean_finalized: hasPrefs && globalDeanFinalized(propStatus),
+      },
     });
   }
 

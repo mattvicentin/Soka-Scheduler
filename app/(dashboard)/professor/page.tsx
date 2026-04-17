@@ -11,38 +11,66 @@ interface ProposalSummary {
   status: string;
 }
 
+interface CourseAssignmentProgress {
+  preferences_in_submitted_proposal: boolean;
+  director_approved: boolean;
+  dean_finalized: boolean;
+}
+
+interface AssignmentCourseRow {
+  id: string;
+  course_code: string;
+  title: string;
+  section_code: string;
+  slot_count: number;
+  progress: CourseAssignmentProgress;
+}
+
 interface AssignmentTermRow {
   term_id: string;
   term_name: string;
-  courses: Array<{ id: string; course_code: string; title: string; section_code: string }>;
-  progress: {
-    submitted: boolean;
-    director_approved: boolean;
-    dean_finalized: boolean;
-    status: string | null;
-    proposal_id: string | null;
-  };
+  proposal: { id: string | null; status: string | null };
+  courses: AssignmentCourseRow[];
 }
 
-function statusBlurb(status: string | null): string {
-  if (!status) return "No proposal yet — create one and add your preferred slots.";
-  switch (status) {
-    case "draft":
-      return "Draft — submit when your calendar preferences are ready.";
+function termProposalLabel(status: string | null): string {
+  if (!status) return "No proposal started for this term yet.";
+  return `Term proposal: ${status.replace(/_/g, " ")}.`;
+}
+
+/** Per-section copy: step 1 depends on slots + submitted proposal; steps 2–3 follow the term proposal. */
+function courseProgressBlurb(
+  slotCount: number,
+  termStatus: string | null,
+  p: CourseAssignmentProgress
+): string {
+  if (slotCount === 0) {
+    if (!termStatus || termStatus === "draft") {
+      return "No slots yet — add this section on the calendar.";
+    }
+    return "This section has no time slots — add them on the calendar so it’s part of your submission.";
+  }
+  if (!termStatus || termStatus === "draft") {
+    return "Slots added — submit your term proposal when every section is ready.";
+  }
+  if (!p.preferences_in_submitted_proposal) {
+    return "Add slots for this section — your proposal is already submitted.";
+  }
+  switch (termStatus) {
     case "submitted":
-      return "Submitted — waiting for your program director to pick up.";
+      return "Included in your submitted proposal — waiting for your program director.";
     case "under_review":
       return "Under review with your program director.";
     case "revised":
-      return "Director sent revisions — update slots if needed and resubmit.";
+      return "Director sent revisions — update this section on the calendar if needed.";
     case "approved":
-      return "Director approved — with the dean for finalization.";
+      return "Director approved this term’s proposal — with the dean for finalization.";
     case "finalized":
       return "Dean finalized — schedule is being published.";
     case "published":
-      return "Published — your preferences are on the official schedule.";
+      return "Published — on the official schedule.";
     default:
-      return status.replace(/_/g, " ");
+      return termStatus.replace(/_/g, " ");
   }
 }
 
@@ -80,8 +108,8 @@ export default function ProfessorDashboardPage() {
       <section className="mt-8 rounded-lg border border-soka-border bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-soka-body">Assignments</h2>
         <p className="mt-1 text-sm text-soka-muted">
-          Courses assigned to you for scheduling, and where your proposal stands with your director and
-          the dean.
+          Each section shows whether you’ve added slots and how your term proposal is moving with your
+          director and the dean.
         </p>
         {assignments.length === 0 ? (
           <p className="mt-4 text-sm text-soka-muted">
@@ -90,64 +118,80 @@ export default function ProfessorDashboardPage() {
           </p>
         ) : (
           <ul className="mt-6 space-y-6">
-            {assignments.map((row) => {
-              const { progress: p } = row;
-              const steps = [
-                { key: "submitted", label: "Submitted for review", done: p.submitted },
-                { key: "director", label: "Director approved", done: p.director_approved },
-                { key: "dean", label: "Dean finalized", done: p.dean_finalized },
-              ] as const;
-              return (
-                <li
-                  key={row.term_id}
-                  className="rounded-md border border-soka-border bg-soka-surface/40 px-4 py-4 sm:px-5"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h3 className="font-medium text-soka-body">{row.term_name}</h3>
-                      <ul className="mt-2 space-y-1 text-sm text-soka-muted">
-                        {row.courses.map((c) => (
-                          <li key={c.id}>
-                            <span className="font-medium text-soka-body">{c.course_code}</span>{" "}
-                            <span className="text-soka-muted">§{c.section_code}</span>
-                            <span className="text-soka-muted"> — {c.title}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <Link
-                      href={`/professor/calendar?term_id=${row.term_id}`}
-                      className="shrink-0 rounded-md border border-soka-border bg-white px-3 py-1.5 text-sm font-medium text-soka-body hover:bg-soka-surface"
-                    >
-                      Calendar
-                    </Link>
+            {assignments.map((row) => (
+              <li
+                key={row.term_id}
+                className="rounded-md border border-soka-border bg-soka-surface/40 px-4 py-4 sm:px-5"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="font-medium text-soka-body">{row.term_name}</h3>
+                    <p className="mt-1 text-xs text-soka-muted">{termProposalLabel(row.proposal.status)}</p>
                   </div>
-                  <div className="mt-4 border-t border-soka-border pt-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-soka-muted">
-                      Proposal progress
-                    </p>
-                    <ol className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-4">
-                      {steps.map((s, i) => (
-                        <li key={s.key} className="flex items-center gap-2 text-sm">
-                          <span
-                            className={
-                              s.done
-                                ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-soka-blue text-xs font-bold text-white"
-                                : "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-soka-border text-xs font-medium text-soka-muted"
-                            }
-                            aria-hidden
-                          >
-                            {s.done ? "\u2713" : i + 1}
-                          </span>
-                          <span className={s.done ? "text-soka-body" : "text-soka-muted"}>{s.label}</span>
-                        </li>
-                      ))}
-                    </ol>
-                    <p className="mt-3 text-sm text-soka-body">{statusBlurb(p.status)}</p>
-                  </div>
-                </li>
-              );
-            })}
+                  <Link
+                    href={`/professor/calendar?term_id=${row.term_id}`}
+                    className="shrink-0 rounded-md border border-soka-border bg-white px-3 py-1.5 text-sm font-medium text-soka-body hover:bg-soka-surface"
+                  >
+                    Calendar
+                  </Link>
+                </div>
+                <ul className="mt-4 space-y-5 border-t border-soka-border pt-4">
+                  {row.courses.map((c) => {
+                    const p = c.progress;
+                    const steps = [
+                      {
+                        key: "prefs",
+                        label: "In submitted proposal",
+                        done: p.preferences_in_submitted_proposal,
+                      },
+                      { key: "director", label: "Director approved", done: p.director_approved },
+                      { key: "dean", label: "Dean finalized", done: p.dean_finalized },
+                    ] as const;
+                    return (
+                      <li key={c.id} className="rounded-md border border-soka-border/80 bg-white/80 px-3 py-3 sm:px-4">
+                        <div className="text-sm text-soka-body">
+                          <span className="font-medium">{c.course_code}</span>{" "}
+                          <span className="text-soka-muted">§{c.section_code}</span>
+                          <span className="text-soka-muted"> — {c.title}</span>
+                          {c.slot_count === 0 ? (
+                            <span className="ml-2 text-xs font-normal text-soka-warning">No slots yet</span>
+                          ) : (
+                            <span className="ml-2 text-xs text-soka-muted">
+                              {c.slot_count} slot{c.slot_count === 1 ? "" : "s"}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-2 text-xs font-medium uppercase tracking-wide text-soka-muted">
+                          Progress
+                        </p>
+                        <ol className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-4">
+                          {steps.map((s, i) => (
+                            <li key={s.key} className="flex items-center gap-2 text-sm">
+                              <span
+                                className={
+                                  s.done
+                                    ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-soka-blue text-xs font-bold text-white"
+                                    : "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-soka-border text-xs font-medium text-soka-muted"
+                                }
+                                aria-hidden
+                              >
+                                {s.done ? "\u2713" : i + 1}
+                              </span>
+                              <span className={s.done ? "text-soka-body" : "text-soka-muted"}>
+                                {s.label}
+                              </span>
+                            </li>
+                          ))}
+                        </ol>
+                        <p className="mt-2 text-sm text-soka-body">
+                          {courseProgressBlurb(c.slot_count, row.proposal.status, p)}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </li>
+            ))}
           </ul>
         )}
       </section>
