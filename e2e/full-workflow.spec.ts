@@ -107,8 +107,9 @@ test("full schedule workflow: professor → director → dean (publish)", async 
 
   await expect(page.getByText(/1 slot\(s\) for your courses/)).toBeVisible();
   await page.getByRole("button", { name: "Submit my schedule for review" }).click();
+  // After submit, two lines mention "submitted" (My offerings + Submit section). Target the unique "Submit your proposal" line only.
   await expect(
-    page.getByText(/This term's proposal status:|Status:\s*submitted/i)
+    page.getByText(/This term's proposal status:\s*submitted/i)
   ).toBeVisible({ timeout: 25_000 });
 
   await signOut(page);
