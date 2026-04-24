@@ -36,9 +36,10 @@ describe("getHeatmapData", () => {
 
   it("counts overlapping slots in same hour block", async () => {
     const mockPrisma = await import("@/lib/db/client").then((m) => m.prisma);
+    // Both slots must extend past 11:00 for the 11:00–12:00 block (half-open [start, end) overlap)
     vi.mocked(mockPrisma.scheduleSlot.findMany).mockResolvedValue([
       { dayOfWeek: 1, startTime: timeToDate(10, 0), endTime: timeToDate(11, 30) },
-      { dayOfWeek: 1, startTime: timeToDate(10, 30), endTime: timeToDate(11, 0) },
+      { dayOfWeek: 1, startTime: timeToDate(10, 30), endTime: timeToDate(11, 15) },
     ] as never);
 
     const { getHeatmapData } = await import("../heatmap");

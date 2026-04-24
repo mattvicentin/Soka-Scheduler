@@ -25,6 +25,7 @@ vi.mock("@/lib/config", () => ({
   getMaxClassDurationMinutes: vi.fn().mockResolvedValue(180),
   getAllowedStartMinutes: vi.fn().mockResolvedValue([0, 15, 30, 45]),
   getCrowdedSlotThreshold: vi.fn().mockResolvedValue(3),
+  getCrowdedPeriodPolicy: vi.fn().mockResolvedValue("warn"),
 }));
 
 describe("Slot validation failure", () => {

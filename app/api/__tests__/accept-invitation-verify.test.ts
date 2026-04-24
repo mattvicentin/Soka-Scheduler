@@ -6,8 +6,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/db/client", () => ({
   prisma: {
     invitation: { findUnique: vi.fn(), update: vi.fn() },
-    account: { findUnique: vi.fn(), create: vi.fn() },
+    account: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
     refreshToken: { create: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -55,14 +56,21 @@ describe("Accept invitation + verify", () => {
       faculty: { id: "f1", email: "prof@test.edu", name: "Professor" },
     } as never);
     vi.mocked(mockPrisma.account.findUnique).mockResolvedValue(null);
-    vi.mocked(mockPrisma.account.create).mockImplementation(() =>
-      Promise.resolve({
-        id: "acc1",
-        email: "prof@test.edu",
-        facultyId: "f1",
-        role: "professor",
-      } as never)
-    );
+    vi.mocked(mockPrisma.account.findFirst).mockResolvedValue(null);
+    const createdAcc = {
+      id: "acc1",
+      email: "prof@test.edu",
+      facultyId: "f1",
+      role: "professor",
+    } as const;
+    vi.mocked(mockPrisma.$transaction).mockImplementation(async (cb) => {
+      const tx = {
+        account: { create: vi.fn().mockResolvedValue(createdAcc) },
+        invitation: { update: vi.fn().mockResolvedValue({}) },
+        verificationCode: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      };
+      return cb(tx as never);
+    });
     vi.mocked(mockPrisma.invitation.update).mockResolvedValue({} as never);
 
     const { POST } = await import("../auth/accept-invitation/route");

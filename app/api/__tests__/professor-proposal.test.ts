@@ -44,6 +44,7 @@ describe("Professor proposal submit", () => {
       facultyId: "f1",
       termId: "t1",
       status: "draft",
+      term: { name: "Fall 2024", semester: "fall", academicYear: 2024 },
     } as never);
 
     const mod = await import("../schedule-proposals/route");
