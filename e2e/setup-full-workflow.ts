@@ -4,6 +4,11 @@
  * Requires: DATABASE_URL, at least one term, one program, 3+ course templates in that program
  *   that are not "Creative Arts", "Distinguished Topics", or "Career Building" only.
  * Writes e2e/.workflow.json (term id for the Playwright spec) — add to .gitignore locally if needed.
+ *
+ * Default E2E accounts (override with E2E_WF_PROF_*, E2E_WF_DIR_*, E2E_WF_DEAN_*):
+ *   Professor  e2e-wf-prof@local.test  /  E2E_WF_Password_prof_1!
+ *   Director   e2e-wf-dir@local.test   /  E2E_WF_Password_dir_1!
+ *   Dean       e2e-wf-dean@local.test  /  E2E_WF_Password_dean_1!
  */
 import { writeFileSync } from "fs";
 import { join } from "path";
@@ -14,8 +19,10 @@ const prisma = new PrismaClient();
 
 const PROF_EMAIL = process.env.E2E_WF_PROF_EMAIL ?? "e2e-wf-prof@local.test";
 const DIR_EMAIL = process.env.E2E_WF_DIR_EMAIL ?? "e2e-wf-dir@local.test";
+const DEAN_EMAIL = process.env.E2E_WF_DEAN_EMAIL ?? "e2e-wf-dean@local.test";
 const PROF_PASSWORD = process.env.E2E_WF_PROF_PASSWORD ?? "E2E_WF_Password_prof_1!";
 const DIR_PASSWORD = process.env.E2E_WF_DIR_PASSWORD ?? "E2E_WF_Password_dir_1!";
+const DEAN_PASSWORD = process.env.E2E_WF_DEAN_PASSWORD ?? "E2E_WF_Password_dean_1!";
 
 const SECTIONS = ["E2E-WF-1", "E2E-WF-2", "E2E-WF-3"] as const;
 
@@ -79,6 +86,25 @@ async function main() {
     );
     process.exit(1);
   }
+
+  // Dean: upsert only (avoids delete failures on FKs from audit/invites/revision logs)
+  const phDean = await hashPassword(DEAN_PASSWORD);
+  await prisma.account.upsert({
+    where: { email: DEAN_EMAIL },
+    create: {
+      email: DEAN_EMAIL,
+      role: "dean",
+      passwordHash: phDean,
+      isAdmin: false,
+    },
+    update: {
+      passwordHash: phDean,
+      role: "dean",
+      isActive: true,
+      isAdmin: false,
+      facultyId: null,
+    },
+  });
 
   const phProf = await hashPassword(PROF_PASSWORD);
   const phDir = await hashPassword(DIR_PASSWORD);
@@ -149,12 +175,13 @@ async function main() {
   console.log("E2E workflow data ready.");
   console.log(`  Term: ${term.name} (${term.id})`);
   console.log(`  Program: ${program.name} (director: ${dirAccount.id})`);
-  console.log("  Set these for Playwright (or rely on script defaults in the spec):");
+  console.log("  Playwright env (defaults in spec match these; override if needed):");
   console.log(`  E2E_WF_PROF_EMAIL=${PROF_EMAIL}`);
   console.log(`  E2E_WF_PROF_PASSWORD=${PROF_PASSWORD}`);
   console.log(`  E2E_WF_DIR_EMAIL=${DIR_EMAIL}`);
   console.log(`  E2E_WF_DIR_PASSWORD=${DIR_PASSWORD}`);
-  console.log("  E2E_WF_DEAN_EMAIL=… E2E_WF_DEAN_PASSWORD=…  (use your dean / admin test account)");
+  console.log(`  E2E_WF_DEAN_EMAIL=${DEAN_EMAIL}`);
+  console.log(`  E2E_WF_DEAN_PASSWORD=${DEAN_PASSWORD}`);
 
   const wfPath = join(__dirname, ".workflow.json");
   writeFileSync(

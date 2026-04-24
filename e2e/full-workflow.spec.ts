@@ -2,8 +2,12 @@
  * End-to-end schedule proposal flow (browser):
  * professor (slot + submit) → director (pick up + approve) → dean (finalize + publish).
  *
- * Faculty, director account, program director link, and three section offerings are created by
- * `npx tsx e2e/setup-full-workflow.ts` (mirrors dean assignments without invitation email tokens).
+ * Professor, director, dean accounts and three section offerings are created by
+ * `npx tsx e2e/setup-full-workflow.ts` (see that file for default emails/passwords).
+ *
+ * Run (app + DB with DATABASE_URL; browser visible):
+ *   npx tsx e2e/setup-full-workflow.ts && npx playwright test e2e/full-workflow.spec.ts --headed
+ * Or: npm run e2e:full-workflow -- --headed
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -23,8 +27,8 @@ const profEmail = process.env.E2E_WF_PROF_EMAIL ?? "e2e-wf-prof@local.test";
 const profPassword = process.env.E2E_WF_PROF_PASSWORD ?? "E2E_WF_Password_prof_1!";
 const dirEmail = process.env.E2E_WF_DIR_EMAIL ?? "e2e-wf-dir@local.test";
 const dirPassword = process.env.E2E_WF_DIR_PASSWORD ?? "E2E_WF_Password_dir_1!";
-const deanEmail = process.env.E2E_WF_DEAN_EMAIL ?? "";
-const deanPassword = process.env.E2E_WF_DEAN_PASSWORD ?? "";
+const deanEmail = process.env.E2E_WF_DEAN_EMAIL ?? "e2e-wf-dean@local.test";
+const deanPassword = process.env.E2E_WF_DEAN_PASSWORD ?? "E2E_WF_Password_dean_1!";
 
 const profDisplayName = "E2E Workflow Professor";
 
@@ -52,11 +56,6 @@ async function signOut(page: Page) {
 }
 
 test("full schedule workflow: professor → director → dean (publish)", async ({ page }) => {
-  test.skip(
-    !deanEmail || !deanPassword,
-    "Set E2E_WF_DEAN_EMAIL and E2E_WF_DEAN_PASSWORD to your dean (or admin) test account. Run: npx tsx e2e/setup-full-workflow.ts first."
-  );
-
   // --- Professor: slot + submit ---
   await login(page, profEmail, profPassword);
   await page.waitForURL(/\/(professor|dashboard)/, { timeout: 20_000 });
