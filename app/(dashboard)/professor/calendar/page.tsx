@@ -985,8 +985,11 @@ function CreateSlotModal({
         <h2 className="text-lg font-semibold text-soka-body">Add preferred slot</h2>
         <div className="mt-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-soka-body">Course</label>
+            <label htmlFor="prof-calendar-create-offering" className="block text-sm font-medium text-soka-body">
+              Course
+            </label>
             <select
+              id="prof-calendar-create-offering"
               value={offeringId}
               onChange={(e) => setOfferingId(e.target.value)}
               className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
@@ -1000,8 +1003,11 @@ function CreateSlotModal({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-soka-body">Day</label>
+            <label htmlFor="prof-calendar-create-day" className="block text-sm font-medium text-soka-body">
+              Day
+            </label>
             <select
+              id="prof-calendar-create-day"
               value={day}
               onChange={(e) => setDay(parseInt(e.target.value, 10))}
               className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"

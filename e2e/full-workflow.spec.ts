@@ -61,7 +61,7 @@ async function dismissWelcomeIfPresent(page: Page) {
 }
 
 async function signOut(page: Page) {
-  await page.getByRole("link", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
 }
 
@@ -85,11 +85,15 @@ test("full schedule workflow: professor → director → dean (publish)", async 
   }
   await dismissWelcomeIfPresent(page);
 
+  // Wait for assigned offerings (modal only lists courses after this loads; otherwise the Course select stays empty)
+  await expect(page.getByText("E2E-WF-1", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
+
   await page.getByRole("button", { name: "Add slot" }).click();
   const modal = page.getByRole("heading", { name: "Add preferred slot" });
   await expect(modal).toBeVisible();
-  // Native <select>: label in selectOption must be a string (RegExp is invalid). Match section in option text, then select by value (offering id).
+  // Native <select>: match section in option text, then select by value (offering id). Label is wired via htmlFor in CreateSlotModal.
   const courseSelect = page.getByLabel("Course", { exact: true });
+  await expect(courseSelect.locator("option", { hasText: "E2E-WF-1" })).toBeVisible({ timeout: 15_000 });
   const e2e1OfferingId = await courseSelect
     .locator("option")
     .filter({ hasText: "E2E-WF-1" })
