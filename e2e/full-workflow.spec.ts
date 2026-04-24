@@ -42,12 +42,22 @@ async function login(page: Page, email: string, password: string) {
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
+/** Dismiss the dashboard welcome dialog if shown (z-index overlay blocks all clicks until gone). */
 async function dismissWelcomeIfPresent(page: Page) {
   const dialog = page.getByRole("dialog", { name: /Welcome to Soka Scheduling/i });
   if (await dialog.isVisible().catch(() => false)) {
     await page.getByRole("button", { name: "Skip for now" }).click();
-    await dialog.waitFor({ state: "hidden" });
+    await dialog.waitFor({ state: "hidden", timeout: 15_000 });
+    return;
   }
+  // Modal can mount just after the first isVisible() check (async /api/accounts/me)
+  try {
+    await dialog.waitFor({ state: "visible", timeout: 3000 });
+  } catch {
+    return;
+  }
+  await page.getByRole("button", { name: "Skip for now" }).click();
+  await dialog.waitFor({ state: "hidden", timeout: 15_000 });
 }
 
 async function signOut(page: Page) {
@@ -73,11 +83,20 @@ test("full schedule workflow: professor → director → dean (publish)", async 
     const termSelect = page.getByLabel("Term", { exact: true });
     await termSelect.selectOption({ index: 1 });
   }
+  await dismissWelcomeIfPresent(page);
 
   await page.getByRole("button", { name: "Add slot" }).click();
   const modal = page.getByRole("heading", { name: "Add preferred slot" });
   await expect(modal).toBeVisible();
-  await page.getByLabel("Course", { exact: true }).selectOption({ label: /E2E-WF-1/ });
+  // Native <select>: label in selectOption must be a string (RegExp is invalid). Match section in option text, then select by value (offering id).
+  const courseSelect = page.getByLabel("Course", { exact: true });
+  const e2e1OfferingId = await courseSelect
+    .locator("option")
+    .filter({ hasText: "E2E-WF-1" })
+    .first()
+    .getAttribute("value");
+  expect(e2e1OfferingId, "E2E-WF-1 offering in Course dropdown").toBeTruthy();
+  await courseSelect.selectOption(e2e1OfferingId!);
   await page.getByLabel("Day", { exact: true }).selectOption("1");
   await page.getByRole("button", { name: "Create" }).click();
   await expect(modal).toBeHidden();
@@ -95,6 +114,7 @@ test("full schedule workflow: professor → director → dean (publish)", async 
   await page.waitForURL(/\/(director|dashboard)/, { timeout: 20_000 });
   await dismissWelcomeIfPresent(page);
   await page.goto("/director/approvals");
+  await dismissWelcomeIfPresent(page);
   await expect(page.getByRole("heading", { name: "Pending Approvals" })).toBeVisible();
   const reviewLink = page.getByRole("link", { name: "Review" }).first();
   await expect(reviewLink).toBeVisible({ timeout: 15_000 });
@@ -111,6 +131,7 @@ test("full schedule workflow: professor → director → dean (publish)", async 
   await page.waitForURL(/\/(dean|dashboard)/, { timeout: 20_000 });
   await dismissWelcomeIfPresent(page);
   await page.goto("/dean/proposals");
+  await dismissWelcomeIfPresent(page);
   await expect(page.getByRole("heading", { name: "Proposals" })).toBeVisible();
   await page.getByLabel("Status").selectOption("approved");
   await expect(page.getByText(profDisplayName).first()).toBeVisible({ timeout: 20_000 });

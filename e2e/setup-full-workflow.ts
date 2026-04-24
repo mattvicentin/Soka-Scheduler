@@ -109,6 +109,7 @@ async function main() {
       role: "dean",
       passwordHash: phDean,
       isAdmin: false,
+      deanTourCompletedAt: new Date(),
     },
     update: {
       passwordHash: phDean,
@@ -116,6 +117,7 @@ async function main() {
       isActive: true,
       isAdmin: false,
       facultyId: null,
+      deanTourCompletedAt: new Date(),
     },
   });
 
@@ -128,6 +130,8 @@ async function main() {
       role: "director",
       passwordHash: phDir,
       isAdmin: false,
+      // Skip welcome / Shepherd gating in dashboard shell (see DashboardShell welcomeModalOpen)
+      directorTourCompletedAt: new Date(),
     },
   });
 
@@ -149,6 +153,7 @@ async function main() {
       role: "professor",
       passwordHash: phProf,
       facultyId: profFaculty.id,
+      professorTourCompletedAt: new Date(),
     },
   });
 
