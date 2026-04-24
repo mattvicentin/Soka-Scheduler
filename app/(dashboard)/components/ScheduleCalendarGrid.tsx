@@ -125,4 +125,4 @@ export function ScheduleCalendarGrid({
   );
 }
 
-export { DAY_NAMES, HOURS };
+export { DAY_NAMES };
