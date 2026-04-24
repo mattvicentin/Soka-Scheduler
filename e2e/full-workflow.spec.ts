@@ -91,9 +91,9 @@ test("full schedule workflow: professor → director → dean (publish)", async 
   await page.getByRole("button", { name: "Add slot" }).click();
   const modal = page.getByRole("heading", { name: "Add preferred slot" });
   await expect(modal).toBeVisible();
-  // Native <select>: match section in option text, then select by value (offering id). Label is wired via htmlFor in CreateSlotModal.
+  // Native <select>: options are in the DOM but Playwright treats non-selected options as *hidden* while the list is closed — do not use toBeVisible() on <option>.
   const courseSelect = page.getByLabel("Course", { exact: true });
-  await expect(courseSelect.locator("option", { hasText: "E2E-WF-1" })).toBeVisible({ timeout: 15_000 });
+  await expect(courseSelect.locator("option", { hasText: "E2E-WF-1" })).toHaveCount(1, { timeout: 15_000 });
   const e2e1OfferingId = await courseSelect
     .locator("option")
     .filter({ hasText: "E2E-WF-1" })
