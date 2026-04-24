@@ -32,14 +32,21 @@ const deanPassword = process.env.E2E_WF_DEAN_PASSWORD ?? "E2E_WF_Password_dean_1
 
 const profDisplayName = "E2E Workflow Professor";
 
+/** After sign-in, Next.js client navigates to /professor, /director, /dean, or /dashboard. */
+const AFTER_LOGIN_PATH = /\/(professor|director|dean|dashboard)(\/|$)/;
+
 test.describe.configure({ mode: "serial" });
 test.setTimeout(240_000);
 
 async function login(page: Page, email: string, password: string) {
-  await page.goto("/login");
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  // Start waiting for navigation before click so fast client redirects are not missed; use domcontentloaded (not load) for Next.js.
+  await Promise.all([
+    page.waitForURL(AFTER_LOGIN_PATH, { timeout: 30_000, waitUntil: "domcontentloaded" }),
+    page.getByRole("button", { name: "Sign in" }).click(),
+  ]);
 }
 
 /** Dismiss the dashboard welcome dialog if shown (z-index overlay blocks all clicks until gone). */
@@ -68,7 +75,6 @@ async function signOut(page: Page) {
 test("full schedule workflow: professor → director → dean (publish)", async ({ page }) => {
   // --- Professor: slot + submit ---
   await login(page, profEmail, profPassword);
-  await page.waitForURL(/\/(professor|dashboard)/, { timeout: 20_000 });
   await dismissWelcomeIfPresent(page);
   await expect(page.getByRole("heading", { name: "Professor Dashboard" })).toBeVisible({
     timeout: 15_000,
@@ -116,7 +122,6 @@ test("full schedule workflow: professor → director → dean (publish)", async 
 
   // --- Director: pick up + approve ---
   await login(page, dirEmail, dirPassword);
-  await page.waitForURL(/\/(director|dashboard)/, { timeout: 20_000 });
   await dismissWelcomeIfPresent(page);
   await page.goto("/director/approvals");
   await dismissWelcomeIfPresent(page);
@@ -133,7 +138,6 @@ test("full schedule workflow: professor → director → dean (publish)", async 
 
   // --- Dean: finalize + publish ---
   await login(page, deanEmail, deanPassword);
-  await page.waitForURL(/\/(dean|dashboard)/, { timeout: 20_000 });
   await dismissWelcomeIfPresent(page);
   await page.goto("/dean/proposals", { waitUntil: "domcontentloaded" });
   await dismissWelcomeIfPresent(page);

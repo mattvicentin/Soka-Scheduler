@@ -10,6 +10,8 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:3000",
     trace: "on-first-retry",
+    /** Next.js: prefer domcontentloaded in tests; avoid long "load" waits. */
+    navigationTimeout: 60_000,
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
