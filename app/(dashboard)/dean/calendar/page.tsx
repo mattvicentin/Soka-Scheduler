@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api/client";
-import { ScheduleCalendarGrid, DAY_NAMES } from "@/app/(dashboard)/components/ScheduleCalendarGrid";
+import {
+  ScheduleCalendarGrid,
+  DAY_NAMES,
+  hourRangeIncludingSlots,
+} from "@/app/(dashboard)/components/ScheduleCalendarGrid";
 import { HeatmapTable } from "@/app/(dashboard)/components/HeatmapTable";
 
 interface Slot {
@@ -349,6 +353,7 @@ export default function DeanCalendarPage() {
         <div className="mt-6 overflow-x-auto">
           <ScheduleCalendarGrid
             slotsByDay={slotsByDay}
+            hourRange={hourRangeIncludingSlots(slotsByDay)}
             slotStartHour={(time) => parseInt(time.split(":")[0], 10)}
             renderSlotActions={(slot) => (
               <>

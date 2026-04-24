@@ -83,8 +83,11 @@ export default function DeanProposalsPage() {
       </p>
 
       <div className="mt-6">
-        <label className="block text-sm font-medium text-soka-body">Status</label>
+        <label htmlFor="dean-proposals-status-filter" className="block text-sm font-medium text-soka-body">
+          Status
+        </label>
         <select
+          id="dean-proposals-status-filter"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="mt-1 block w-48 rounded-md border border-soka-border px-3 py-2 text-sm"

@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api/client";
-import { ScheduleCalendarGrid, DAY_NAMES } from "@/app/(dashboard)/components/ScheduleCalendarGrid";
+import {
+  ScheduleCalendarGrid,
+  DAY_NAMES,
+  hourRangeIncludingSlots,
+} from "@/app/(dashboard)/components/ScheduleCalendarGrid";
 import { HeatmapTable } from "@/app/(dashboard)/components/HeatmapTable";
 
 interface Slot {
@@ -561,7 +565,7 @@ export default function ProfessorCalendarPage() {
         <div className="mt-6 overflow-x-auto">
           <ScheduleCalendarGrid
             slotsByDay={slotsByDay}
-            hourRange={[8, 9, 10, 11, 12, 13, 14, 15, 16, 17]}
+            hourRange={hourRangeIncludingSlots(slotsByDay)}
             slotStartHour={(time) => Math.floor(slotToMinutes(time) / 60)}
             highlightedSlotId={editing}
             renderSlotActions={(slot) =>

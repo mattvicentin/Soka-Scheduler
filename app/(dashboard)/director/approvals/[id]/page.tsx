@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api/client";
 import {
   ScheduleCalendarGrid,
   DAY_NAMES as CAL_DAY_NAMES,
+  hourRangeIncludingSlots,
 } from "@/app/(dashboard)/components/ScheduleCalendarGrid";
 import type { CalendarSlot } from "@/app/(dashboard)/components/ScheduleCalendarGrid";
 
@@ -342,7 +343,7 @@ export default function DirectorProposalDetailPage() {
                 <div className="mt-2 overflow-x-auto rounded border border-soka-border bg-white">
                   <ScheduleCalendarGrid
                     slotsByDay={slotsByDay}
-                    hourRange={[8, 9, 10, 11, 12, 13, 14, 15, 16, 17]}
+                    hourRange={hourRangeIncludingSlots(slotsByDay)}
                     slotStartHour={(t) => Math.floor(slotToMinutes(t) / 60)}
                     renderSlotActions={() => null}
                   />

@@ -1,7 +1,33 @@
 "use client";
 
 const DAY_NAMES = ["", "Mon", "Tue", "Wed", "Thu", "Fri"];
-const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+
+/** Default grid rows (8:00–17:00). Use {@link hourRangeIncludingSlots} when any slot can start before 8:00. */
+export const DEFAULT_CALENDAR_HOUR_RANGE: number[] = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+export const HOURS = DEFAULT_CALENDAR_HOUR_RANGE;
+
+function startHourFromTime(startTime: string): number {
+  const [h, m] = startTime.trim().split(":").map((x) => parseInt(x, 10));
+  if (Number.isNaN(h)) return 8;
+  return Math.floor((h * 60 + (Number.isNaN(m) ? 0 : m)) / 60);
+}
+
+/** Widen the displayed hour axis so slots starting before 8:00 (e.g. 07:50) appear in the grid. */
+export function hourRangeIncludingSlots(
+  slotsByDay: Array<Array<{ start_time: string }>>,
+  baseRange: number[] = DEFAULT_CALENDAR_HOUR_RANGE
+): number[] {
+  let minH = Math.min(...baseRange);
+  let maxH = Math.max(...baseRange);
+  for (const day of slotsByDay) {
+    for (const s of day) {
+      const sh = startHourFromTime(s.start_time);
+      minH = Math.min(minH, sh);
+      maxH = Math.max(maxH, sh);
+    }
+  }
+  return Array.from({ length: maxH - minH + 1 }, (_, i) => minH + i);
+}
 
 export interface CalendarSlot {
   id: string;
@@ -26,7 +52,7 @@ interface ScheduleCalendarGridProps {
 
 export function ScheduleCalendarGrid({
   slotsByDay,
-  hourRange = [8, 9, 10, 11, 12, 13, 14, 15, 16],
+  hourRange = DEFAULT_CALENDAR_HOUR_RANGE,
   slotStartHour,
   renderSlotActions,
   highlightedSlotId,
