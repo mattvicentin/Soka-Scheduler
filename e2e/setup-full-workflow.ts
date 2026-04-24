@@ -33,6 +33,14 @@ function programExempt(name: string): boolean {
   return EXEMPT_FRAGS.some((f) => n.includes(f));
 }
 
+/** Remove rows that block Account deletes (onDelete: Restrict in schema). */
+async function clearAccountDeleteBlockers(accountIds: string[]) {
+  if (accountIds.length === 0) return;
+  await prisma.auditLog.deleteMany({ where: { actorAccountId: { in: accountIds } } });
+  await prisma.invitation.deleteMany({ where: { createdByAccountId: { in: accountIds } } });
+  await prisma.proposalRevisionLog.deleteMany({ where: { editedByAccountId: { in: accountIds } } });
+}
+
 async function main() {
   const term = await prisma.term.findFirst({
     orderBy: [{ academicYear: "desc" }, { semester: "desc" }],
@@ -67,6 +75,11 @@ async function main() {
   for (const f of oldFaculty) {
     await prisma.scheduleProposal.deleteMany({ where: { facultyId: f.id } });
   }
+  const e2eAccounts = await prisma.account.findMany({
+    where: { email: { in: [PROF_EMAIL, DIR_EMAIL] } },
+    select: { id: true },
+  });
+  await clearAccountDeleteBlockers(e2eAccounts.map((a) => a.id));
   await prisma.account.deleteMany({ where: { email: { in: [PROF_EMAIL, DIR_EMAIL] } } });
   await prisma.faculty.deleteMany({ where: { email: { in: [PROF_EMAIL, DIR_EMAIL] } } });
 
