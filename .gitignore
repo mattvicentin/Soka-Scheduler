@@ -33,3 +33,11 @@ yarn-error.log*
 Thumbs.db
 
 # Prisma — keep migration_lock.toml tracked for consistent provider across clones
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+e2e/.workflow.json
