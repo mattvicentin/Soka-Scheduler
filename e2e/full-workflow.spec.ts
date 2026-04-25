@@ -23,12 +23,18 @@ function readWorkflowFile(): { termId: string; termName?: string } | null {
   }
 }
 
-const profEmail = process.env.E2E_WF_PROF_EMAIL ?? "e2e-wf-prof@local.test";
-const profPassword = process.env.E2E_WF_PROF_PASSWORD ?? "E2E_WF_Password_prof_1!";
-const dirEmail = process.env.E2E_WF_DIR_EMAIL ?? "e2e-wf-dir@local.test";
-const dirPassword = process.env.E2E_WF_DIR_PASSWORD ?? "E2E_WF_Password_dir_1!";
-const deanEmail = process.env.E2E_WF_DEAN_EMAIL ?? "e2e-wf-dean@local.test";
-const deanPassword = process.env.E2E_WF_DEAN_PASSWORD ?? "E2E_WF_Password_dean_1!";
+/** Empty string in env (e.g. E2E_WF_PROF_EMAIL=) is not nullish, so ?? would not apply — treat as unset. */
+function e2eEnv(value: string | undefined, fallback: string): string {
+  const t = value?.trim();
+  return t ? t : fallback;
+}
+
+const profEmail = e2eEnv(process.env.E2E_WF_PROF_EMAIL, "e2e-wf-prof@local.test");
+const profPassword = e2eEnv(process.env.E2E_WF_PROF_PASSWORD, "E2E_WF_Password_prof_1!");
+const dirEmail = e2eEnv(process.env.E2E_WF_DIR_EMAIL, "e2e-wf-dir@local.test");
+const dirPassword = e2eEnv(process.env.E2E_WF_DIR_PASSWORD, "E2E_WF_Password_dir_1!");
+const deanEmail = e2eEnv(process.env.E2E_WF_DEAN_EMAIL, "e2e-wf-dean@local.test");
+const deanPassword = e2eEnv(process.env.E2E_WF_DEAN_PASSWORD, "E2E_WF_Password_dean_1!");
 
 const profDisplayName = "E2E Workflow Professor";
 
@@ -39,9 +45,15 @@ test.describe.configure({ mode: "serial" });
 test.setTimeout(240_000);
 
 async function login(page: Page, email: string, password: string) {
+  if (!email || !password) {
+    throw new Error(
+      "E2E login: missing email or password. Unset or remove empty E2E_WF_* env vars in .env to use script defaults."
+    );
+  }
   await page.goto("/login", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
+  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await expect(page.getByLabel("Email", { exact: true })).toHaveValue(email);
   // Start waiting for navigation before click so fast client redirects are not missed; use domcontentloaded (not load) for Next.js.
   await Promise.all([
     page.waitForURL(AFTER_LOGIN_PATH, { timeout: 30_000, waitUntil: "domcontentloaded" }),
