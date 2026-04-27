@@ -50,7 +50,7 @@ async function login(page: Page, email: string, password: string) {
       "E2E login: missing email or password. Unset or remove empty E2E_WF_* env vars in .env to use script defaults."
     );
   }
-  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await page.goto("/login", { waitUntil: "load" });
   await expect(page.getByRole("heading", { name: /Log in/i })).toBeVisible({ timeout: 15_000 });
   const form = page.locator("main form");
   const emailBox = form.locator("#email");

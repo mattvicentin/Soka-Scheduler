@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SokaLogoFull } from "@/components/SokaBrand";
 
@@ -10,6 +10,17 @@ function LoginForm() {
   const redirect = searchParams?.get("redirect") ?? "/dashboard";
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  /** Drop leaked credentials from URL (legacy GET submits before hydration used query params). */
+  useEffect(() => {
+    const email = searchParams?.get("email");
+    const password = searchParams?.get("password");
+    if (!email && !password) return;
+    const u = new URL(window.location.href);
+    u.searchParams.delete("email");
+    u.searchParams.delete("password");
+    router.replace(u.pathname + u.search);
+  }, [router, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -48,7 +59,7 @@ function LoginForm() {
     <main className="flex min-h-screen flex-col items-center justify-center p-8">
       <SokaLogoFull priority className="mb-8 h-14 w-auto max-w-[280px] object-contain" />
       <h1 className="text-xl font-bold">Log in</h1>
-      <form onSubmit={handleSubmit} className="mt-6 w-full max-w-sm space-y-4">
+      <form method="post" onSubmit={handleSubmit} className="mt-6 w-full max-w-sm space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-soka-body">
             Email
