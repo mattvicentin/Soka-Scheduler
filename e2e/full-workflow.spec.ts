@@ -51,14 +51,17 @@ async function login(page: Page, email: string, password: string) {
     );
   }
   await page.goto("/login", { waitUntil: "domcontentloaded" });
-  await page.getByLabel("Email", { exact: true }).fill(email);
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  await expect(page.getByLabel("Email", { exact: true })).toHaveValue(email);
-  // Start waiting for navigation before click so fast client redirects are not missed; use domcontentloaded (not load) for Next.js.
-  await Promise.all([
-    page.waitForURL(AFTER_LOGIN_PATH, { timeout: 30_000, waitUntil: "domcontentloaded" }),
-    page.getByRole("button", { name: "Sign in" }).click(),
-  ]);
+  // Suspense wraps the form — wait so fills hit the hydrated LoginForm (see app/(auth)/login/page.tsx).
+  await expect(page.getByRole("heading", { name: /Log in/i })).toBeVisible({ timeout: 15_000 });
+  const emailBox = page.locator("#email");
+  const passwordBox = page.locator("#password");
+  await emailBox.fill(email);
+  await passwordBox.fill(password);
+  await expect(emailBox).toHaveValue(email);
+  await expect(passwordBox).toHaveValue(password);
+  // Sequential submit → wait avoids races with React controlled inputs + fetch login path.
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL(AFTER_LOGIN_PATH, { timeout: 30_000, waitUntil: "domcontentloaded" });
 }
 
 /** Dismiss the dashboard welcome dialog if shown (z-index overlay blocks all clicks until gone). */
