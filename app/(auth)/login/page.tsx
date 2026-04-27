@@ -8,15 +8,17 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams?.get("redirect") ?? "/dashboard";
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const email = String(fd.get("email") ?? "").trim();
+    const password = String(fd.get("password") ?? "");
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -53,9 +55,8 @@ function LoginForm() {
           </label>
           <input
             id="email"
+            name="email"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
             className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
@@ -67,9 +68,8 @@ function LoginForm() {
           </label>
           <input
             id="password"
+            name="password"
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
             className="mt-1 block w-full rounded-md border border-soka-border px-3 py-2 text-sm"
