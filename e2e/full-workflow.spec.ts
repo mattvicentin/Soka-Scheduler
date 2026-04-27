@@ -11,7 +11,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 
 function readWorkflowFile(): { termId: string; termName?: string } | null {
   try {
@@ -44,6 +44,27 @@ const AFTER_LOGIN_PATH = /\/(professor|director|dean|dashboard)(\/|$)/;
 test.describe.configure({ mode: "serial" });
 test.setTimeout(240_000);
 
+/**
+ * React controlled `<input value={state} onChange=…}>`: plain `fill()` can desync DOM vs state.
+ * Use the native value setter + input/change events so submit uses the same strings as POST body.
+ */
+async function fillControlledInput(locator: Locator, value: string) {
+  await locator.evaluate((el, val) => {
+    const input = el as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value"
+    )?.set;
+    if (setter) {
+      setter.call(input, val);
+    } else {
+      input.value = val;
+    }
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }, value);
+}
+
 async function login(page: Page, email: string, password: string) {
   if (!email || !password) {
     throw new Error(
@@ -51,15 +72,14 @@ async function login(page: Page, email: string, password: string) {
     );
   }
   await page.goto("/login", { waitUntil: "domcontentloaded" });
-  // Suspense wraps the form — wait so fills hit the hydrated LoginForm (see app/(auth)/login/page.tsx).
   await expect(page.getByRole("heading", { name: /Log in/i })).toBeVisible({ timeout: 15_000 });
-  const emailBox = page.locator("#email");
-  const passwordBox = page.locator("#password");
-  await emailBox.fill(email);
-  await passwordBox.fill(password);
+  const form = page.locator("main form");
+  const emailBox = form.locator("#email");
+  const passwordBox = form.locator("#password");
+  await fillControlledInput(emailBox, email);
+  await fillControlledInput(passwordBox, password);
   await expect(emailBox).toHaveValue(email);
   await expect(passwordBox).toHaveValue(password);
-  // Sequential submit → wait avoids races with React controlled inputs + fetch login path.
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(AFTER_LOGIN_PATH, { timeout: 30_000, waitUntil: "domcontentloaded" });
 }
